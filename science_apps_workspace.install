@@ -1,0 +1,28 @@
+<?php
+
+// TODO hook_schema();
+
+/**
+ * Implements hook_install().
+ * Set variables for various options.
+ */
+function science_apps_workspace_install() {
+  // by default not published, promoted, or sticky
+  variable_set('node_options_science_app', array());
+
+  // by default comments are hidden
+  variable_set('comment_science_app', 0);
+
+  // by default no menu options
+  variable_set('menu_options_science_app', array());
+}
+
+/**
+ * Implements hook_uninstall().
+ * Unset variables set in install.
+ */
+function science_apps_workspace_uninstall() {
+  variable_del('node_options_science_app');
+  variable_del('comment_science_app');
+  variable_del('menu_options_science_app');
+}

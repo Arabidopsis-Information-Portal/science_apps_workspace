@@ -1,0 +1,12 @@
+name = Science Apps Workspace
+description = AIP Science Applications Workspace
+package = Araport
+version = VERSION
+core = 7.x
+
+dependencies[] = url
+dependencies[] = libraries
+
+stylesheets[all][] = science_apps_workspace.css
+
+scripts[] = science_apps_workspace.js
