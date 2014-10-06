@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Implements hook_menu().
  */
@@ -16,6 +15,36 @@ function science_apps_workspace_menu(){
     'file' => 'science_apps_workspace.pages.inc',
   );
 
+  $items['workspace/configure'] = array(
+    'title' => t('Science Apps Workspace Configuration'),
+    'description' => t('User-configurable workspace for using AIP Science applications'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'science_apps_workspace_config',
+    'page arguments' => array(2),
+    'access arguments' => array('use science apps'),
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['workspace/new'] = array(
+    'title' => t('Create a New Workspace'),
+    'description' => t('Form for creating a new science apps workspace'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('science_apps_workspace_edit_form'),
+    'access arguments' => array('use science apps'),
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['workspace/edit/%science_apps_workspace'] = array(
+    'title' => t('Edit Workspace'),
+    'description' => t('Form for creating a new science apps workspace'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('science_apps_workspace_edit_form', 2),
+    'access arguments' => array('use science apps'),
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
   return $items;
 }
 
@@ -26,23 +55,13 @@ function science_apps_workspace_permission(){
   $perms = array();
 
   $perms['use science apps'] = array(
-    'title' => '',
-    'description' => '',
-  );
-
-  $perms['create science apps'] = array(
-    'title' => '',
-    'description' => '',
+    'title' => 'Use Science Apps',
+    'description' => 'Users with this permission will be able to use science apps in the workspace',
   );
 
   $perms['admin science apps'] = array(
-    'title' => '',
-    'description' => '',
-  );
-
-  $perms['configure science apps workspace'] = array(
-    'title' => '',
-    'description' => '',
+    'title' => 'Administer Science Apps',
+    'description' => 'Users with this permission will be able to administer science apps',
   );
 
   return $perms;
@@ -62,6 +81,45 @@ function science_apps_workspace_node_info() {
       'locked' => TRUE,
     ),
   );
+}
+
+/**
+ * Implements hook_insert();
+ * Add a record to `science_apps_workspace_app_config` for this node.
+ */
+function science_app_insert($node) {
+  db_insert('science_apps_workspace_app_config')
+    ->fields(array(
+      'nid' => $node->nid,
+    ))
+    ->execute();
+}
+
+/**
+ * Implements hook_update();
+ * Update the record in `science_apps_workspace_app_config` for this node.
+ */
+function science_app_update($node) {
+  science_apps_workspace_set_app_config_ready($node->nid, FALSE);
+}
+
+function science_apps_workspace_set_app_config_ready($nid, $ready = FALSE) {
+  db_update('science_apps_workspace_app_config')
+    ->fields(array(
+      'ready' => $ready
+    ))
+    ->condition('nid', $nid)
+    ->execute();
+}
+
+/**
+ * Implements hook_delete();
+ * Delete the record in `science_apps_workspace_app_config` for this node.
+ */
+function science_app_delete($node) {
+  db_delete('science_apps_workspace_app_config')
+    ->condition('nid', $node->nid)
+    ->execute();
 }
 
 function science_app_view($node, $view_mode) {
@@ -125,6 +183,11 @@ function _science_app_installed_fields() {
       'cardinality' => 1,
       'type'        => 'url',
     ),
+    'science_app_version' => array(
+      'field_name'  => 'science_app_version',
+      'cardinality' => 1,
+      'type'        => 'text',
+    ),
   );
 }
 
@@ -152,6 +215,23 @@ function _science_app_installed_instances() {
       'required'    => TRUE,
       'widget'      => array(
         'type'      => 'url_external',
+        'weight'    => 1,
+      ),
+      'display'     => array(
+        'default'   => array(
+          'label'   => 'above',
+          'type'    => 'hidden',
+        ),
+      ),
+    ),
+    'science_app_version' => array(
+      'field_name'  => 'science_app_version',
+      'label'       => t('Release version'),
+      'description' => t('Please provide the name of the Git tag to check out. If not provided, the default repository branch (usually <code>master</code>) is used. <strong>It is strongly recommended that you provide a specific version.</strong>'),
+      'required'    => FALSE,
+      'widget'      => array(
+        'type'      => 'text_textfield',
+        'weight'    => 2,
       ),
       'display'     => array(
         'default'   => array(
@@ -164,12 +244,13 @@ function _science_app_installed_instances() {
 }
 
 function science_apps_workspace_get_user_apps($uid) {
-  $nids = db_select('node', 'n')
-    ->fields('n', array('nid'))
-    ->condition('type', 'science_app', '=')
-    ->condition('uid', $uid, '=')
-    ->execute()
-    ->fetchCol();
+  $query = db_select('node', 'n');
+  $query->join('science_apps_workspace_app_config', 'config', 'config.nid = n.nid');
+  $query->fields('n', array('nid'))
+    ->condition('n.type', 'science_app', '=')
+    ->condition('n.uid', $uid, '=')
+    ->condition('config.ready', 1, '=');
+  $nids = $query->execute()->fetchCol();
   return node_load_multiple($nids);
 }
 
@@ -193,21 +274,33 @@ function science_apps_workspace_cron() {
     watchdog('science_apps_workspace', 'Unable to prepare the Science Apps Repository in @path!', array('@path' => $apps_repository), WATCHDOG_ERROR);
   }
 
-  // check that
-  $nids = db_select('node', 'n')
-    ->fields('n', array('nid'))
-    ->condition('type', 'science_app')
-    ->condition('status', 0)
+  // load apps that still need to be checked out and dependencies resolved
+  $nids = db_select('science_apps_workspace_app_config', 'app')
+    ->fields('app', array('nid'))
+    ->condition('ready', '0')
+    ->range(0, 10)
     ->execute()
     ->fetchAssoc();
 
   foreach ($nids as $nid) {
-    if (! _science_apps_workspace_app_repo_ready($nid)) {
-      _science_apps_workspace_app_repo_checkout($nid);
+    $checkout = FALSE;
+    $dependencies = FALSE;
+
+    if (_science_apps_workspace_app_repo_ready($nid)) {
+      $checkout = TRUE;
+    } else {
+      $checkout = _science_apps_workspace_app_repo_checkout($nid);
     }
 
-    if (! _science_apps_workspace_app_dependencies_ready($nid)) {
-      _science_apps_workspace_app_dependencies_process($nid);
+    if (_science_apps_workspace_app_dependencies_ready($nid)) {
+      $dependencies = TRUE;
+    } else {
+      $dependencies = _science_apps_workspace_app_dependencies_process($nid);
+    }
+
+    if ($checkout && $dependencies) {
+      // update app config record
+      science_apps_workspace_set_app_config_ready($nid, TRUE);
     }
   }
 }
@@ -229,10 +322,12 @@ function _science_apps_workspace_app_repo_checkout($app_nid) {
       watchdog('science_apps_workspace', 'Unable to clone repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_ERROR);
     } else {
       watchdog('science_apps_workspace', 'Successfully cloned repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_INFO);
+      return TRUE;
     }
   } else {
     watchdog('science_apps_workspace', 'Unable to create checkout directory for %application at @path!', array('%application' => $app->title,'@path' => $checkout_dir), WATCHDOG_ERROR);
   }
+  return FALSE;
 }
 
 /**
@@ -316,10 +411,10 @@ function _science_apps_workspace_app_dependencies_process($app_nid) {
       watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => implode("\n", $bower_log)), WATCHDOG_ERROR);
     } else {
       watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@app:'."\n".'@output', array('@app' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
-
-      // update science_app_info table?
+      return TRUE;
     }
   }
+  return FALSE;
 }
 
 function science_apps_workspace_theme() {
@@ -415,4 +510,8 @@ function science_apps_workspace_load_libraries($libraries) {
     }
   }
   return $loaded;
+}
+
+function science_apps_workspace_load($wid) {
+  return Workspace::get($wid);
 }

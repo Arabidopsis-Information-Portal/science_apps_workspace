@@ -7,6 +7,8 @@ core = 7.x
 dependencies[] = url
 dependencies[] = libraries
 
-stylesheets[all][] = science_apps_workspace.css
+files[] = includes/workspace.inc
 
-scripts[] = science_apps_workspace.js
+stylesheets[all][] = styles/science_apps_workspace.css
+
+scripts[] = scripts/science_apps_workspace.js

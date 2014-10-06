@@ -1,6 +1,117 @@
 <?php
 
-// TODO hook_schema();
+/**
+ * Implements hook_schema();
+ */
+function science_apps_workspace_schema() {
+  $schema['science_apps_workspace_app_config'] = array(
+    'description' => 'Table for saving the individual configuration and status for apps.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The {node} this app belongs to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'aid' => array(
+        'description' => 'The primary identifier for this app.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'ready' => array(
+        'description' => 'Boolean indicating whether the app is ready, i.e. it is checked out and any dependencies are resolved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'published' => array(
+        'description' => 'Boolean indicating whether the app is available in the public apps catalog.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'published_apps' => array('nid', 'published'),
+      'ready_apps' => array('nid', 'ready'),
+    ),
+    'unique keys' => array(
+      'nid' => array('nid')
+    ),
+    'foreign keys' => array(
+      'app_node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+    ),
+    'primary key' => array('aid'),
+  );
+
+  $schema['science_apps_workspace_user_config'] = array(
+    'description' => 'Table for saving the workspace configurations for individual users.',
+    'fields' => array(
+      'wid' => array(
+        'description' => 'The primary identifier for a workspace.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid that owns this workspace.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'name' => array(
+        'description' => 'The user-provided name for this workspace.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'config' => array(
+        'description' => 'The JSON configuration for this workspace; indicates the row/column/app configuation for the workspace.',
+        'type' => 'text',
+        'not null' => TRUE,
+        // 'default' => '{"rows":[{"column":{"type":"app","app":null}}]}',
+      ),
+      'status' => array(
+        'description' => 'Boolean indicating whether the workspace is default.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the workspace was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the workspace was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'workspace_created' => array('created'),
+      'workspace_changed' => array('changed'),
+    ),
+    'foreign keys' => array(
+      'workspace_owner' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+    'primary key' => array('wid'),
+  );
+
+  return $schema;
+}
 
 /**
  * Implements hook_install().
