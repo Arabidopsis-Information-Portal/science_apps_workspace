@@ -55,7 +55,8 @@ function science_apps_workspace_render_app($app) {
   $output = '<div class="app">';
   if ($app) {
     // TODO: do render
-    $output .= '<div class="app-placeholder">Render Application</div>';
+    $app_node = node_load($app);
+    $output .= theme('science_app_display', array('node' => $app_node));
   } else {
     $output .= '<div class="app-placeholder"><h1>Choose an app!</h1><p>Click the Workspace Settings button <button disabled type="button" class="btn btn-default"><i class="fa fa-cog"></i></button> at the top of the page to configure your workspace.</p></div>';
   }
@@ -64,7 +65,7 @@ function science_apps_workspace_render_app($app) {
 }
 
 function science_apps_workspace_page_header($workspace) {
-  $output = '<header><nav>';
+  $output = '<header><nav class="navbar navbar-default"><div class="container-fluid"><a class="navbar-brand" href="#">' . $workspace->name . '</a>';
   if (user_access('create science_app content')) {
     $output .= l('<i class="fa fa-flask"></i> ' . t('Create New App'), 'node/add/science-app', array('html' => TRUE, 'attributes' => array('class' => 'btn btn-primary navbar-btn')));
   }
@@ -74,7 +75,7 @@ function science_apps_workspace_page_header($workspace) {
     $output .= '<li>'. l(t('Manage Workspaces'), 'workspace/configure') . '</li>';
     $output .= '</ul></div>';
   }
-  $output .= '</nav></header>';
+  $output .= '</div></nav></header>';
 
   return $output;
 }
@@ -113,6 +114,9 @@ function science_apps_workspace_config($wid = null) {
 }
 
 function science_apps_workspace_edit_form($form, &$form_state, $workspace = null) {
+  global $user;
+
+  $apps_catalog = science_apps_workspace_apps_catalog($user->uid);
 
   if (! isset($form_state['workspace_config'])) {
     if (! $workspace) {
@@ -152,8 +156,6 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
     '#suffix' => '</div>',
   );
 
-  // error_log( print_r( $config, 1 ) );
-
   // foreach row...
   foreach ($config->rows as $row_i => $row) {
 
@@ -170,8 +172,8 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
       '#type' => 'submit',
       '#name' => 'ws_row_'.$row_i.'_cols_add',
       '#value' => t('Add Column'),
-      // '#disabled' => count($row->columns) == 4,
       '#attributes' => array(
+        'class' => array('btn-xs'),
         'title' => count($row->columns) == 4 ? t('At this time there is a maximum of four (4) columns') : ''
       ),
       '#limit_validation_errors' => array(),
@@ -219,7 +221,7 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
         $form['config']['rows'][$row_i]['columns'][$col_i]['app'] = array(
           '#type' => 'select',
           '#title' => t('Select Application'),
-          '#options' => array(),
+          '#options' => $apps_catalog,
           '#empty_option' => t('Choose application'),
           '#default_value' => $col->app,
         );
@@ -229,6 +231,7 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
         '#type' => 'submit',
         '#name' => 'ws_row_'.$row_i.'_cols_'.$col_i.'_rem',
         '#value' => t('Remove Column'),
+        '#attributes' => array('class' => array('btn-xs')),
         '#limit_validation_errors' => array(),
         '#submit' => array('science_apps_workspace_remove_column_submit'),
         '#ajax' => array(
@@ -239,12 +242,26 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
 
     } // end foreach column
 
+    $form['config']['rows'][$row_i]['remove'] = array(
+      '#type' => 'submit',
+      '#name' => 'ws_row_'.$row_i.'_rem',
+      '#value' => t('Remove Row'),
+      '#attributes' => array('class' => array('btn-xs')),
+      '#limit_validation_errors' => array(),
+      '#submit' => array('science_apps_workspace_remove_row_submit'),
+      '#ajax' => array(
+        'callback' => 'science_apps_workspace_ajax_row_callback',
+        'wrapper' => 'ws-rows',
+      ),
+    );
+
   } // end foreach $config->rows
 
   $form['config']['add_row'] = array(
     '#type' => 'submit',
     '#name' => 'ws_row_add',
     '#value' => t('Add Row'),
+    '#attributes' => array('class' => array('btn-xs')),
     '#limit_validation_errors' => array(),
     '#submit' => array('science_apps_workspace_add_row_submit'),
     '#ajax' => array(
@@ -283,7 +300,10 @@ function science_apps_workspace_add_row_submit($form, &$form_state) {
 }
 
 function science_apps_workspace_remove_row_submit($form, &$form_state) {
-  error_log(print_r($form_state['clicked_button'],1));
+  $row_i = $form_state['clicked_button']['#parents'][2];
+  $config = $form_state['workspace_config'];
+  unset($config->rows[$row_i]);
+  $form_state['rebuild'] = TRUE;
 }
 
 function science_apps_workspace_ajax_row_callback($form, &$form_state) {
@@ -310,9 +330,7 @@ function science_apps_workspace_remove_column_submit($form, &$form_state) {
 
 function science_apps_workspace_ajax_column_callback($form, &$form_state) {
   $row_i = $form_state['clicked_button']['#parents'][2];
-  error_log($row_i);
-  $columns = $form['config']['rows'][$row_i]['columns'];
-  return $columns;
+  return $form['config']['rows'][$row_i]['columns'];
 }
 
 function science_apps_workspace_edit_form_submit(&$form, &$form_state) {
@@ -320,16 +338,21 @@ function science_apps_workspace_edit_form_submit(&$form, &$form_state) {
   $wid = $form_state['values']['wid'];
   $uid = $user->uid;
   $name = $form_state['values']['name'];
-  $config = $form_state['values']['config'];
 
-  // remove button values
-  unset($config['rows']['add_row']);
-  foreach ($config['rows'] as &$row) {
-    unset($row['add_column']);
-    foreach ($row['columns'] as &$col) {
-      unset($col['remove']);
+  // build config object from form submission
+  $config = array('rows' => array());
+  foreach($form_state['values']['config']['rows'] as $row) {
+    $columns = array();
+    foreach ($row['columns'] as $column) {
+      // TODO: deal with different column types [app, rows]
+      $columns[] = array(
+        'type' => $column['type'],
+        'app' => $column['app']
+      );
     }
+    $config['rows'][] = array('columns' => $columns);
   }
+
   $status = $form_state['values']['status'];
 
   if ($wid) {

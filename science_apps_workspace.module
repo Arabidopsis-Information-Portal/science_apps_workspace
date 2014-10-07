@@ -106,7 +106,7 @@ function science_app_update($node) {
 function science_apps_workspace_set_app_config_ready($nid, $ready = FALSE) {
   db_update('science_apps_workspace_app_config')
     ->fields(array(
-      'ready' => $ready
+      'ready' => ($ready ? 1 : 0)
     ))
     ->condition('nid', $nid)
     ->execute();
@@ -243,6 +243,36 @@ function _science_app_installed_instances() {
   );
 }
 
+function science_apps_workspace_apps_catalog($uid = 0) {
+  $catalog = array();
+
+  if ($uid) {
+    $user_apps = array();
+    $apps = science_apps_workspace_get_user_apps($uid);
+    foreach ($apps as $app) {
+      $user_apps[$app->nid] = $app->title;
+    }
+    $catalog[t('User Applications')] = $user_apps;
+  }
+
+  $public_apps = array();
+  $apps = science_apps_workspace_get_public_apps();
+  foreach ($apps as $app) {
+    $public_apps[$app->nid] = $app->title;
+  }
+  $catalog[t('Public Applications')] = $public_apps;
+
+  return $catalog;
+}
+
+function science_apps_workspace_get_public_apps() {
+  $nids = db_select('science_apps_workspace_app_config', 'conf')
+    ->fields('conf', array('nid'))
+    ->condition('conf.published', 1)
+    ->execute()->fetchCol();
+  return node_load_multiple($nids);
+}
+
 function science_apps_workspace_get_user_apps($uid) {
   $query = db_select('node', 'n');
   $query->join('science_apps_workspace_app_config', 'config', 'config.nid = n.nid');
@@ -286,11 +316,7 @@ function science_apps_workspace_cron() {
     $checkout = FALSE;
     $dependencies = FALSE;
 
-    if (_science_apps_workspace_app_repo_ready($nid)) {
-      $checkout = TRUE;
-    } else {
-      $checkout = _science_apps_workspace_app_repo_checkout($nid);
-    }
+    $checkout = _science_apps_workspace_app_repo_checkout($nid);
 
     if (_science_apps_workspace_app_dependencies_ready($nid)) {
       $dependencies = TRUE;
@@ -314,11 +340,28 @@ function _science_apps_workspace_app_repo_checkout($app_nid) {
   $app = node_load($app_nid);
   $repository_url = $app->science_app_repository['und'][0]['value'];
   $checkout_dir = _science_apps_workspace_apps_repo($app_nid);
-  if (file_prepare_directory($checkout_dir, FILE_CREATE_DIRECTORY)) {
+  if (file_prepare_directory($checkout_dir)) {
+    // updating this app
+    $cmd = array();
+    $cmd[] = 'cd ' . drupal_realpath($checkout_dir);
+    $cmd[] = 'git checkout -f master';
+    $cmd[] = 'git pull';
+    if ($app->science_app_version && isset($app->science_app_version['und'][0]['value'])) {
+      $cmd[] = 'git checkout ' . escapeshellarg($app->science_app_version['und'][0]['value']);
+    }
+    $output = exec(implode(';', $cmd), $output_log, $return_val);
+    if ($return_val != 0) {
+      $output_log[] = $output;
+      watchdog('science_apps_workspace', 'Git update for %application failed from url: @url; Logs: @logs', array('%application' => $app->title, '@url' => $repository_url, '@logs' => implode("\n", $output_log)), WATCHDOG_ERROR);
+    } else {
+      watchdog('science_apps_workspace', 'Successfully updated repository for %application from url: @url; Logs: @log', array('%application' => $app->title,'@url' => $repository_url,'@log' => $output), WATCHDOG_INFO);
+      return TRUE;
+    }
+  } else if (file_prepare_directory($checkout_dir, FILE_CREATE_DIRECTORY)) {
     $checkout_dir_realpath = drupal_realpath($checkout_dir);
     $git_command = escapeshellcmd(implode(' ', array('git clone', $repository_url, $checkout_dir_realpath)));
-    exec($git_command, $git_log, $return_var);
-    if ($return_var != 0) {
+    exec($git_command, $git_log, $return_val);
+    if ($return_val != 0) {
       watchdog('science_apps_workspace', 'Unable to clone repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_ERROR);
     } else {
       watchdog('science_apps_workspace', 'Successfully cloned repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_INFO);
@@ -446,10 +489,18 @@ function theme_science_app_display($vars) {
     if (_science_apps_workspace_app_dependencies_ready($node->nid)) {
       $prep_steps[1]['status'] = 1;
 
-      // load app dependencies
-      if (science_apps_workspace_load_libraries(_science_apps_workspace_app_dependencies_list($node->nid))) {
+      $app = db_select('science_apps_workspace_app_config', 'app')
+        ->fields('app')
+        ->condition('app.nid', $node->nid)
+        ->execute()->fetch();
+
+      if ($app->ready) {
         $prep_steps[2]['status'] = 1;
-        $app_ready = TRUE;
+
+        // load app dependencies
+        if (science_apps_workspace_load_libraries(_science_apps_workspace_app_dependencies_list($node->nid))) {
+          $app_ready = TRUE;
+        }
       }
     }
   }

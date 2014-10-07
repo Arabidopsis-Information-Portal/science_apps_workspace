@@ -14,12 +14,6 @@
   font-weight: 200;
 }
 
-.science-apps-workspace header {
-  padding-bottom: 1em;
-  margin-bottom: 1em;
-  border-bottom: 1px solid #eee;
-}
-
 .science-apps-workspace .app-placeholder {
   background-color: #eee;
   padding: 30px;
