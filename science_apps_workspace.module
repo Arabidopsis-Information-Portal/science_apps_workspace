@@ -312,21 +312,23 @@ function science_apps_workspace_cron() {
     ->execute()
     ->fetchAssoc();
 
-  foreach ($nids as $nid) {
-    $checkout = FALSE;
-    $dependencies = FALSE;
+  if ($nids && count($nids) > 0) {
+    foreach ($nids as $nid) {
+      $checkout = FALSE;
+      $dependencies = FALSE;
 
-    $checkout = _science_apps_workspace_app_repo_checkout($nid);
+      $checkout = _science_apps_workspace_app_repo_checkout($nid);
 
-    if (_science_apps_workspace_app_dependencies_ready($nid)) {
-      $dependencies = TRUE;
-    } else {
-      $dependencies = _science_apps_workspace_app_dependencies_process($nid);
-    }
+      if (_science_apps_workspace_app_dependencies_ready($nid)) {
+        $dependencies = TRUE;
+      } else {
+        $dependencies = _science_apps_workspace_app_dependencies_process($nid);
+      }
 
-    if ($checkout && $dependencies) {
-      // update app config record
-      science_apps_workspace_set_app_config_ready($nid, TRUE);
+      if ($checkout && $dependencies) {
+        // update app config record
+        science_apps_workspace_set_app_config_ready($nid, TRUE);
+      }
     }
   }
 }
