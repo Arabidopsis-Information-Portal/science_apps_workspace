@@ -1,25 +1,31 @@
 <?php
 
-function science_apps_workspace_page() {
+function science_apps_workspace_page($workspace = null) {
   global $user;
 
-  $output = '<div class="workspace">';
-  $workspace = Workspace::getDefault($user);
   if (! $workspace) {
-    $workspace = new Workspace();
-  }
-  if (isset($workspace)) {
-    $config = json_decode($workspace->config);
-    foreach ($config->rows as $row) {
-      $output .= science_apps_workspace_render_row($row);
+    $workspace = Workspace::getDefault($user);
+    if (! $workspace) {
+      if ($user->uid) {
+        drupal_set_message(t('You are currently using the Default workspace. !create_link', array('!create_link' => l(t('Customize your own workspace.'), 'workspace/new', array('query' => array('destination' => 'workspace'))))), 'info');
+      } else {
+        drupal_set_message(t('!login_link to customize your Workspace.', array('!login_link' => l(t('Log in'), 'user/login', array('query' => array('destination' => 'workspace'))))), 'info');
+      }
+      $workspace = new Workspace();
     }
-  } else {
-    $output .= '<div class="jumbotron">';
-    $output .= '<h1>There aren\'t any apps in your workspace!</h1>';
-    $output .= '<p>If you recently created one, please wait a few minutes while we prepare it. If not, why don\'t you add one now?</p></p>';
   }
-  $output .= '</div>';
-  return '<div class="science-apps-workspace">' . science_apps_workspace_page_header($workspace) . $output . '</div>';
+
+  $config = json_decode($workspace->config);
+  $rows = array();
+  foreach ($config->rows as $row) {
+    $rows[] = science_apps_workspace_render_row($row);
+  }
+
+  return '<div class="science-apps-workspace">'
+    . science_apps_workspace_page_header($workspace)
+    . '<div class="workspace">'
+    . implode('', $rows)
+    . '</div></div>';
 }
 
 function science_apps_workspace_render_row($row) {
@@ -65,13 +71,16 @@ function science_apps_workspace_render_app($app) {
 }
 
 function science_apps_workspace_page_header($workspace) {
-  $output = '<header><nav class="navbar navbar-default"><div class="container-fluid"><a class="navbar-brand" href="#">' . $workspace->name . '</a>';
+  $name = empty($workspace->name) ? variable_get('science_apps_workspace_default_name', t('Default')) : $workspace->name;
+  $output = '<header><nav class="navbar navbar-default"><div class="container-fluid"><a class="navbar-brand" href="#">' . $name . '</a>';
   if (user_access('create science_app content')) {
     $output .= l('<i class="fa fa-flask"></i> ' . t('Create New App'), 'node/add/science-app', array('html' => TRUE, 'attributes' => array('class' => 'btn btn-primary navbar-btn')));
   }
-  if (user_access('use science apps')) {
+  if (user_access('manage workspaces')) {
     $output .= '<div class="btn-group navbar-right"><button type="button" class="btn btn-default navbar-btn dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cog"></i><span class="sr-only">'.t('Settings').'</span></button><ul class="dropdown-menu" role="menu">';
-    $output .= '<li>'. l(t('Edit this Workspace'), 'workspace/edit/' . $workspace->wid) . '</li>';
+    if ($workspace->wid) {
+      $output .= '<li>'. l(t('Edit this Workspace'), 'workspace/edit/' . $workspace->wid) . '</li>';
+    }
     $output .= '<li>'. l(t('Manage Workspaces'), 'workspace/configure') . '</li>';
     $output .= '</ul></div>';
   }
@@ -88,26 +97,41 @@ function science_apps_workspace_config($wid = null) {
   if ($wid) {
     return $wid;
   } else {
-    $workspaces = db_select('science_apps_workspace_user_config', 'ws')
-      ->fields('ws')
-      ->condition('ws.uid', $user->uid)
-      ->execute()->fetchAllAssoc('wid');
+    $workspaces = Workspace::getList($user);
 
     if (count($workspaces)) {
       $items = array();
-      foreach ($workspaces as $wid => $ws) {
-        $item = '<strong>' . $ws->name . '</strong>';
-        $item .= ' <i class="fa fa-' . ($ws->status ? 'check-square-o' : 'square-o') . '"></i> Default workspace ';
-        $item .= l(t('Edit this workspace'), 'workspace/edit/' . $wid, array('attributes' => array('class' => 'btn btn-default')));
-        $items[] = $item;
+      foreach ($workspaces as $ws) {
+        $item = '<h4>' . $ws->name . ($ws->status ? ' <small><i class="fa fa-check-square-o"></i> Default Workspace</small>' : '' ) . '</h4>';
+
+        $app_nids = array();
+        $config = $ws->getConfigObject();
+        foreach ($config->rows as $row) {
+          foreach ($row->columns as $col) {
+            $app_nids[] = $col->app;
+          }
+        }
+        $app_titles = array_map(function($node) { return l($node->title, 'node/'.$node->nid); }, node_load_multiple($app_nids));
+        $apps_list = implode(', ', $app_titles);
+        $item .= '<p><b>Apps:</b> '.$apps_list.'</p>';
+
+        $item .= '<p>';
+        $item .= l(t('Edit this workspace'), 'workspace/edit/' . $ws->wid, array('attributes' => array('class' => 'btn btn-default')));
+        $item .= ' ';
+        $item .= l(t('Make this workspace default'), 'workspace/make-default/' . $ws->wid, array('attributes' => array('class' => 'btn btn-default')));
+        $item .= '</p>';
+        $items[] = array(
+          'data' => $item,
+          'class' => array('list-group-item'),
+        );
       }
 
-      $output .= theme('item_list', array('title' => t('Select a Workspace'), 'items' => $items));
+      $output .= theme('item_list', array('title' => t('Your Workspaces'), 'items' => $items, 'attributes' => array('class' => 'list-group')));
     } else {
       $output .= '<div class="jumbotron"><h1>You haven\'t configured any workspaces yet!</h1></div>';
     }
 
-    $output .= l(t('Create a New Workspace'), 'workspace/new', array('attributes' => array('class' => 'btn btn-lg btn-primary btn-block')));
+    $output .= l(t('Create a New Workspace'), 'workspace/new', array('attributes' => array('class' => 'btn btn-lg btn-primary')));
   }
 
   return $output;
@@ -136,6 +160,9 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
     '#title' => t('Workspace Name'),
     '#required' => TRUE,
     '#default_value' => $workspace->name,
+    '#attributes' => array(
+      'placeholder' => t('My Workspace'),
+    ),
   );
 
   $form['config'] = array(
@@ -270,13 +297,6 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
     ),
   );
 
-  $form['status'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Default Workspace'),
-    '#description' => t('Check this if you would like this workspace to be your default'),
-    '#default_value' => $workspace->status,
-  );
-
   $form['actions'] = array(
     array(
       '#type' => 'submit',
@@ -353,8 +373,6 @@ function science_apps_workspace_edit_form_submit(&$form, &$form_state) {
     $config['rows'][] = array('columns' => $columns);
   }
 
-  $status = $form_state['values']['status'];
-
   if ($wid) {
     $workspace = Workspace::get($wid);
   } else {
@@ -362,7 +380,6 @@ function science_apps_workspace_edit_form_submit(&$form, &$form_state) {
   }
   $workspace->uid = $uid;
   $workspace->name = $name;
-  $workspace->status = $status;
   $workspace->setConfigObject($config);
   $ret = $workspace->save();
 

@@ -21,7 +21,7 @@ function science_apps_workspace_menu(){
     'type' => MENU_CALLBACK,
     'page callback' => 'science_apps_workspace_config',
     'page arguments' => array(2),
-    'access arguments' => array('use science apps'),
+    'access arguments' => array('manage workspaces'),
     'file' => 'science_apps_workspace.pages.inc',
   );
 
@@ -31,7 +31,7 @@ function science_apps_workspace_menu(){
     'type' => MENU_CALLBACK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('science_apps_workspace_edit_form'),
-    'access arguments' => array('use science apps'),
+    'access arguments' => array('manage workspaces'),
     'file' => 'science_apps_workspace.pages.inc',
   );
 
@@ -41,8 +41,19 @@ function science_apps_workspace_menu(){
     'type' => MENU_CALLBACK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('science_apps_workspace_edit_form', 2),
-    'access arguments' => array('use science apps'),
+    'access arguments' => array(2),
+    'access callback' => 'science_apps_workspace_workspace_access',
     'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['workspace/make-default/%science_apps_workspace'] = array(
+    'title' => t('Edit Workspace'),
+    'description' => t('Form for creating a new science apps workspace'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'science_apps_workspace_make_default',
+    'page arguments' => array(2),
+    'access arguments' => array(2),
+    'access callback' => 'science_apps_workspace_workspace_access',
   );
 
   return $items;
@@ -59,12 +70,22 @@ function science_apps_workspace_permission(){
     'description' => 'Users with this permission will be able to use science apps in the workspace',
   );
 
+  $perms['manage workspaces'] = array(
+    'title' => 'Manage Science Apps Workspace',
+    'description' => 'Users with this permission will be able to customize their workspace',
+  );
+
   $perms['admin science apps'] = array(
     'title' => 'Administer Science Apps',
     'description' => 'Users with this permission will be able to administer science apps',
   );
 
   return $perms;
+}
+
+function science_apps_workspace_workspace_access($workspace) {
+  global $user;
+  return user_access('admin science apps') || $workspace->uid == $user->uid;
 }
 
 /**
@@ -282,6 +303,20 @@ function science_apps_workspace_get_user_apps($uid) {
     ->condition('config.ready', 1, '=');
   $nids = $query->execute()->fetchCol();
   return node_load_multiple($nids);
+}
+
+function science_apps_workspace_make_default($workspace) {
+  global $user;
+
+  db_update('science_apps_workspace_user_config')
+    ->fields(array( 'status' => 0 ))
+    ->condition('uid', $user->uid)
+    ->execute();
+
+  $workspace->status = 1;
+  $workspace->save();
+  drupal_set_message(t('Default workspace updated!'));
+  drupal_goto('workspace/configure');
 }
 
 function _science_apps_workspace_apps_repo($app_nid = null) {
