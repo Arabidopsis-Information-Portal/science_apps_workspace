@@ -474,25 +474,31 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
 }
 
 function _science_apps_workspace_app_dependencies_process($app_nid) {
-  $bower_commands = array();
-  $deps = _science_apps_workspace_app_dependencies_list($app_nid);
-  foreach ($deps as $lib => $version) {
-    $dep_path = _science_apps_dependency_path() . DIRECTORY_SEPARATOR . 'bower_components' . DIRECTORY_SEPARATOR . $lib . DIRECTORY_SEPARATOR;
-    if (! is_dir($dep_path)) {
-      $bower_commands[] = 'bower install ' . escapeshellarg($lib . '=' . $version);
-    }
-  }
 
-  if (count($bower_commands) > 0) {
-    array_unshift($bower_commands, escapeshellcmd('cd ' . drupal_realpath(_science_apps_dependency_path())));
-    $cmd = implode(';', $bower_commands);
-    exec($cmd, $bower_log, $return_var);
-    if ($return_var != 0) {
-      watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => implode("\n", $bower_log)), WATCHDOG_ERROR);
-    } else {
-      watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@app:'."\n".'@output', array('@app' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
-      return TRUE;
+  $dependencies_dir = _science_apps_dependency_path();
+  if (file_prepare_directory($dependencies_dir, FILE_CREATE_DIRECTORY)) {
+    $bower_commands = array();
+    $deps = _science_apps_workspace_app_dependencies_list($app_nid);
+    foreach ($deps as $lib => $version) {
+      $dep_path = implode(DIRECTORY_SEPARATOR, array($dependencies_dir, 'bower_components', $lib));
+      if (! is_dir($dep_path)) {
+        $bower_commands[] = 'bower install ' . escapeshellarg($lib . '=' . $version);
+      }
     }
+
+    if (count($bower_commands) > 0) {
+      array_unshift($bower_commands, escapeshellcmd('cd ' . drupal_realpath(_science_apps_dependency_path())));
+      $cmd = implode(';', $bower_commands);
+      exec($cmd, $bower_log, $return_var);
+      if ($return_var != 0) {
+        watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => implode("\n", $bower_log)), WATCHDOG_ERROR);
+      } else {
+        watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@app:'."\n".'@output', array('@app' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
+        return TRUE;
+      }
+    }
+  } else {
+    watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed: unable to create directory for science_apps_dependency_path @path', array('@app' => $app_nid,'@path' => $dependencies_dir), WATCHDOG_ERROR);
   }
   return FALSE;
 }
