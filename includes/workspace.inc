@@ -49,6 +49,7 @@ class Workspace {
       // insert
       $wid = db_insert('science_apps_workspace_user_config')
         ->fields(array(
+          'uid' => $this->uid,
           'name' => $this->name,
           'config' => $this->config,
           'status' => $this->status
