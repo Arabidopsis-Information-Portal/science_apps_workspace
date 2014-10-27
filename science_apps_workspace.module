@@ -10,7 +10,6 @@ function science_apps_workspace_menu(){
     'description' => t('User-configurable workspace for using AIP Science applications'),
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_page',
-    'page arguments' => array(),
     'access arguments' => array('use science apps'),
     'file' => 'science_apps_workspace.pages.inc',
   );
