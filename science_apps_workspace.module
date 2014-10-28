@@ -55,6 +55,14 @@ function science_apps_workspace_menu(){
     'access callback' => 'science_apps_workspace_workspace_access',
   );
 
+  $items['workspace/prepare-app/%node'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => 'science_apps_workspace_prepare_app',
+    'page arguments' => array(2),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 2),
+  );
+
   return $items;
 }
 
@@ -348,23 +356,32 @@ function science_apps_workspace_cron() {
 
   if ($nids && count($nids) > 0) {
     foreach ($nids as $nid) {
-      $checkout = FALSE;
-      $dependencies = FALSE;
-
-      $checkout = _science_apps_workspace_app_repo_checkout($nid);
-
-      if (_science_apps_workspace_app_dependencies_ready($nid)) {
-        $dependencies = TRUE;
-      } else {
-        $dependencies = _science_apps_workspace_app_dependencies_process($nid);
-      }
-
-      if ($checkout && $dependencies) {
-        // update app config record
-        science_apps_workspace_set_app_config_ready($nid, TRUE);
-      }
+      _science_apps_workspace_prepare_app($nid);
     }
   }
+}
+
+function science_apps_workspace_prepare_app($node) {
+  _science_apps_workspace_prepare_app($node->nid);
+  drupal_goto('node/'.$node->nid);
+}
+
+function _science_apps_workspace_prepare_app($nid) {
+   $checkout = FALSE;
+   $dependencies = FALSE;
+
+   $checkout = _science_apps_workspace_app_repo_checkout($nid);
+
+   if (_science_apps_workspace_app_dependencies_ready($nid)) {
+     $dependencies = TRUE;
+   } else {
+     $dependencies = _science_apps_workspace_app_dependencies_process($nid);
+   }
+
+   if ($checkout && $dependencies) {
+     // update app config record
+     science_apps_workspace_set_app_config_ready($nid, TRUE);
+   }
 }
 
 function _science_apps_workspace_app_repo_ready($app_nid) {
@@ -465,7 +482,7 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
         $ready = FALSE;
       }
     } else {
-      watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+      watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) has not been prepared yet.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
       $ready = FALSE;
     }
   }
@@ -488,9 +505,10 @@ function _science_apps_workspace_app_dependencies_process($app_nid) {
     if (count($bower_commands) > 0) {
       array_unshift($bower_commands, escapeshellcmd('cd ' . drupal_realpath(_science_apps_dependency_path())));
       $cmd = implode(';', $bower_commands);
-      exec($cmd, $bower_log, $return_var);
+      watchdog('science_apps_workspace', 'Dependency command for SciApp nid=@app :'."\n".'@cmd', array('@app' => $app_nid,'@cmd' => $cmd), WATCHDOG_INFO);
+      $out = exec($cmd, $bower_log, $return_var);
       if ($return_var != 0) {
-        watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => implode("\n", $bower_log)), WATCHDOG_ERROR);
+        watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => $out.$return_var.implode("\n", $bower_log)), WATCHDOG_ERROR);
       } else {
         watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@app:'."\n".'@output', array('@app' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
         return TRUE;
@@ -560,7 +578,7 @@ function theme_science_app_display($vars) {
     $output = '<div class="science-app-pending">';
     $output .= '<h1><i class="fa fa-refresh fa-spin"></i> Preparing this application...</h1>';
     $output .= '<p>We are still getting this application ready. Please check back soon!</p>';
-    $output .= '<p><button class="btn btn-primary" onclick="javascript:location.reload()">Check Now</button></p>';
+    $output .= '<p>'.l(t('Check Now'), 'workspace/prepare-app/'.$node->nid, array('attributes' => array('class' => 'btn btn-primary'))).'</p>';
 
     $items = array();
     foreach ($prep_steps as $step) {
