@@ -443,7 +443,7 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
     $semver_regex = '/^[<>=~v]?(\d+\.\d+)(.*)?$/'; // permissive semver
     foreach($bower->dependencies as $lib => $version) {
       $lib = strtolower($lib);
-      $version = strtolower($lib);
+      $version = strtolower($version);
       // hopefully the version is semver
       if (preg_match($semver_regex, $version)) {
         $name = $lib . '-' . preg_replace($semver_regex, '\1\2', $version);
