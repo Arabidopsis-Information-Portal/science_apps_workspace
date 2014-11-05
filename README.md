@@ -18,7 +18,7 @@ cause some unexpected behavior. We have found that in these cases, rather
 than granting more privileges to the user, manually working through the error
 messages to deduce the correct configuration is best.
 
-Common issues:
+## Common issues
 
 - `bower` and `yeoman` attempt to create directories like `$HOME/.config` or `$HOME/.cache`
   - resolution: manually create the directories and grant the user permission
