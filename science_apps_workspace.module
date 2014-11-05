@@ -461,45 +461,49 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
 function _science_apps_workspace_app_dependencies_ready($app_nid) {
   $ready = FALSE;
   $deps = _science_apps_workspace_app_dependencies_list($app_nid);
-  foreach ($deps as $lib => $version) {
-    $dep_path = _science_apps_dependency_path() . DIRECTORY_SEPARATOR . 'bower_components' . DIRECTORY_SEPARATOR . $lib . DIRECTORY_SEPARATOR;
-    if (is_dir($dep_path)) {
-      if (is_file($dep_path . 'bower.json')) {
-        $bower_path = $dep_path . 'bower.json';
-      }
-      // check for old component.json file
-      else if (is_file($dep_path . 'component.json')) {
-        $bower_path = $dep_path . 'component.json';
-      }
+  if (count($deps) == 0) {
+    $ready = TRUE;
+  } else {
+    foreach ($deps as $lib => $version) {
+      $dep_path = _science_apps_dependency_path() . DIRECTORY_SEPARATOR . 'bower_components' . DIRECTORY_SEPARATOR . $lib . DIRECTORY_SEPARATOR;
+      if (is_dir($dep_path)) {
+        if (is_file($dep_path . 'bower.json')) {
+          $bower_path = $dep_path . 'bower.json';
+        }
+        // check for old component.json file
+        else if (is_file($dep_path . 'component.json')) {
+          $bower_path = $dep_path . 'component.json';
+        }
 
-      if ($bower_path) {
-        $bower = json_decode(file_get_contents($bower_path));
-        if ($bower->main) {
-          // package exists, files declared, check that none missing
-          $ready = TRUE;
+        if ($bower_path) {
+          $bower = json_decode(file_get_contents($bower_path));
+          if ($bower->main) {
+            // package exists, files declared, check that none missing
+            $ready = TRUE;
 
-          if (is_array($bower->main)) {
-            // check each dependency
-            foreach ($bower->main as $main) {
-              if (! is_file($dep_path . $main)) {
-                watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_ERROR);
-                $ready = FALSE;
+            if (is_array($bower->main)) {
+              // check each dependency
+              foreach ($bower->main as $main) {
+                if (! is_file($dep_path . $main)) {
+                  watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_ERROR);
+                  $ready = FALSE;
+                }
               }
+            } else if (! is_file($dep_path . $bower->main)) {
+              watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_ERROR);
+              $ready = FALSE;
             }
-          } else if (! is_file($dep_path . $bower->main)) {
-            watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_ERROR);
-            $ready = FALSE;
+          } else {
+            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib), 'error'));
+            watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
           }
         } else {
-          drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib), 'error'));
-          watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib), 'error'));
+          watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
         }
       } else {
-        drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib), 'error'));
-        watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+        watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) has not been prepared yet.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
       }
-    } else {
-      watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) has not been prepared yet.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
     }
   }
   return $ready;
