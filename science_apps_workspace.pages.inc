@@ -86,7 +86,8 @@ function science_apps_workspace_page_header($workspace) {
 
   /* edit current workspace */
   if (user_access('manage workspaces')) {
-    $output .= l('<i class="fa fa-th"></i> ' . t('Edit workspace'), 'workspace/edit/' . $workspace->wid, array('html' => TRUE, 'attributes' => array('class' => 'btn btn-default navbar-btn')));
+    $url = $workspace->wid ? 'workspace/edit/' . $workspace->wid : 'workspace/new';
+    $output .= l('<i class="fa fa-th"></i> ' . t('Edit workspace'), $url, array('html' => TRUE, 'attributes' => array('class' => 'btn btn-default navbar-btn')));
   }
 
   $output .= '<div class="navbar-right">';
