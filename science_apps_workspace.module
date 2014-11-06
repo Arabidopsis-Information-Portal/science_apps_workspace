@@ -412,7 +412,11 @@ function _science_apps_workspace_app_repo_checkout($app_nid) {
     }
   } else if (file_prepare_directory($checkout_dir, FILE_CREATE_DIRECTORY)) {
     $checkout_dir_realpath = drupal_realpath($checkout_dir);
-    $git_command = escapeshellcmd(implode(' ', array('git clone', $repository_url, $checkout_dir_realpath)));
+    $git_command = 'git clone ' . escapeshellarg($repository_url) . ' ' . $checkout_dir_realpath;
+    if ($app->science_app_version && isset($app->science_app_version['und'][0]['value'])) {
+      $git_command .= '; cd ' . $checkout_dir_realpath;
+      $git_command .= '; git checkout ' . escapeshellarg($app->science_app_version['und'][0]['value']);
+    }
     exec($git_command, $git_log, $return_val);
     if ($return_val != 0) {
       watchdog('science_apps_workspace', 'Unable to clone repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_ERROR);
@@ -459,11 +463,9 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
 }
 
 function _science_apps_workspace_app_dependencies_ready($app_nid) {
-  $ready = FALSE;
+  $ready = TRUE;
   $deps = _science_apps_workspace_app_dependencies_list($app_nid);
-  if (count($deps) == 0) {
-    $ready = TRUE;
-  } else {
+  if (count($deps) > 0) {
     foreach ($deps as $lib => $version) {
       $dep_path = _science_apps_dependency_path() . DIRECTORY_SEPARATOR . 'bower_components' . DIRECTORY_SEPARATOR . $lib . DIRECTORY_SEPARATOR;
       if (is_dir($dep_path)) {
@@ -474,13 +476,14 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
         else if (is_file($dep_path . 'component.json')) {
           $bower_path = $dep_path . 'component.json';
         }
+        else {
+          $bower_path = FALSE;
+        }
 
         if ($bower_path) {
           $bower = json_decode(file_get_contents($bower_path));
           if ($bower->main) {
             // package exists, files declared, check that none missing
-            $ready = TRUE;
-
             if (is_array($bower->main)) {
               // check each dependency
               foreach ($bower->main as $main) {
@@ -494,14 +497,17 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
               $ready = FALSE;
             }
           } else {
+            $ready = FALSE;
             drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib), 'error'));
             watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
           }
         } else {
+          $ready = FALSE;
           drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib), 'error'));
           watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
         }
       } else {
+        $ready = FALSE;
         watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) has not been prepared yet.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
       }
     }
@@ -628,6 +634,8 @@ function science_apps_workspace_load_libraries($libraries) {
       $bower_path = $lib_path . 'bower.json';
     } else if (is_file($lib_path . 'component.json')) {
       $bower_path = $lib_path . 'component.json';
+    } else {
+      $bower_path = FALSE;
     }
     if ($bower_path) {
       // load the library bower.json
