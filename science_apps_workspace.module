@@ -498,12 +498,12 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
             }
           } else {
             $ready = FALSE;
-            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib), 'error'));
+            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib)), 'error');
             watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
           }
         } else {
           $ready = FALSE;
-          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib), 'error'));
+          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib)), 'error');
           watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
         }
       } else {
