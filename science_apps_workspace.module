@@ -347,16 +347,18 @@ function science_apps_workspace_cron() {
   }
 
   // load apps that still need to be checked out and dependencies resolved
-  $nids = db_select('science_apps_workspace_app_config', 'app')
+  $records = db_select('science_apps_workspace_app_config', 'app')
     ->fields('app', array('nid'))
     ->condition('ready', '0')
-    ->range(0, 10)
-    ->execute()
-    ->fetchAssoc();
-
-  if ($nids && count($nids) > 0) {
+    ->range(0,10)
+    ->execute();
+  while($nids = $records->fetchAssoc()) {
     foreach ($nids as $nid) {
-      _science_apps_workspace_prepare_app($nid);
+      try {
+        _science_apps_workspace_prepare_app($nid);
+      } catch (Exception $e) {
+        drupal_set_message('error');
+      }
     }
   }
 }
@@ -367,6 +369,8 @@ function science_apps_workspace_prepare_app($node) {
 }
 
 function _science_apps_workspace_prepare_app($nid) {
+   watchdog('science_apps_workspace', 'Preparing app nid=@nid', array('@nid'=>$nid));
+
    $checkout = FALSE;
    $dependencies = FALSE;
 
@@ -377,7 +381,6 @@ function _science_apps_workspace_prepare_app($nid) {
    } else {
      $dependencies = _science_apps_workspace_app_dependencies_process($nid);
    }
-
    if ($checkout && $dependencies) {
      // update app config record
      science_apps_workspace_set_app_config_ready($nid, TRUE);
@@ -516,18 +519,16 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
 }
 
 function _science_apps_workspace_app_dependencies_process($app_nid) {
-
   $dependencies_dir = _science_apps_dependency_path();
   if (file_prepare_directory($dependencies_dir, FILE_CREATE_DIRECTORY)) {
     $bower_commands = array();
     $deps = _science_apps_workspace_app_dependencies_list($app_nid);
     foreach ($deps as $lib => $version) {
       $dep_path = implode(DIRECTORY_SEPARATOR, array($dependencies_dir, 'bower_components', $lib));
-      if (! is_dir($dep_path)) {
+      if (! ( is_dir($dep_path) && is_file($dep_path . '/bower.json') )) {
         $bower_commands[] = 'bower install ' . escapeshellarg($lib . '=' . $version);
       }
     }
-
     if (count($bower_commands) > 0) {
       array_unshift($bower_commands, escapeshellcmd('cd ' . drupal_realpath(_science_apps_dependency_path())));
       $cmd = implode(';', $bower_commands);
