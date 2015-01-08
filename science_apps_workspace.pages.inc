@@ -72,7 +72,11 @@ function science_apps_workspace_render_app($app) {
   if ($app) {
     // TODO: do render
     $app_node = node_load($app);
-    $output .= theme('science_app_display', array('node' => $app_node));
+    if ($app_node) {
+      $output .= theme('science_app_display', array('node' => $app_node));
+    } else {
+      $output .= '<div class="alert alert-warning"><h4>This app has been removed.</h4><p>This application is no longer available on the portal. Please update your workspace configuration.</p></div>';
+    }
   } else {
     $output .= '<div class="app-placeholder"><h1>Choose an app!</h1><p>Click the Workspace Settings button <button disabled type="button" class="btn btn-default"><i class="fa fa-cog"></i></button> at the top of the page to configure your workspace.</p></div>';
   }
