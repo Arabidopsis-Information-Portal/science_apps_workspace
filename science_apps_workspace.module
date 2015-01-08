@@ -648,7 +648,7 @@ function science_apps_workspace_load_libraries($libraries) {
         if (substr($file, -3) === 'css') {
           drupal_add_css($lib_path.$file, 'file');
         } else {
-          drupal_add_js($lib_path.$file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => 0));
+          drupal_add_js($lib_path.$file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
         }
       }
     } else {
