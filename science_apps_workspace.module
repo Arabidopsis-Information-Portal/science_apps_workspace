@@ -449,15 +449,16 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
     $bower = json_decode(file_get_contents($app_dir . DIRECTORY_SEPARATOR . 'bower.json'));
     $semver_regex = '/^[<>=~v]?(\d+\.\d+)(.*)?$/'; // permissive semver
     foreach($bower->dependencies as $lib => $version) {
-      $lib = strtolower($lib);
-      $version = strtolower($version);
+
+      $lib_str = strtolower($lib);
+      $version_str = strtolower($version);
       // hopefully the version is semver
-      if (preg_match($semver_regex, $version)) {
-        $name = $lib . '-' . preg_replace($semver_regex, '\1\2', $version);
+      if (preg_match($semver_regex, $version_str)) {
+        $name = $lib_str . '-' . preg_replace($semver_regex, '\1\2', $version_str);
         $deps[$name] = $lib . '#' . $version;
       } else {
         // do our best
-        $name = $lib . '-' . preg_replace('/[^[:alnum:].]+/', '-', $version);
+        $name = $lib_str . '-' . preg_replace('/[^[:alnum:].]+/', '-', $version_str);
         $deps[$name] = $version;
       }
     }
