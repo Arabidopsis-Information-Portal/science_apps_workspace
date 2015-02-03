@@ -3,6 +3,12 @@
 function science_apps_workspace_page($wid = 0) {
   global $user;
 
+  if (! $user->uid) {
+    // anonymous users cannot use science apps
+    $message = t('You need to be !logged_in to access Science Apps.', array('!logged_in' => l(t('logged in'), 'user/login', array('query' => array('destination' => 'workspace')))));
+    return '<div class="jumbotron"><p>'.$message.'</p></div>';
+  }
+
   if ($wid) {
     if ($wid == 'default') {
       $workspace = science_apps_workspace_default_workspace();
@@ -21,11 +27,7 @@ function science_apps_workspace_page($wid = 0) {
   }
 
   if (! $workspace) {
-    if ($user->uid) {
-      drupal_set_message(t('You are currently using the Default workspace. !create_link', array('!create_link' => l(t('Customize your own workspace.'), 'workspace/new', array('query' => array('destination' => 'workspace'))))), 'info');
-    } else {
-      drupal_set_message(t('!login_link to customize your Workspace.', array('!login_link' => l(t('Log in'), 'user/login', array('query' => array('destination' => 'workspace'))))), 'info');
-    }
+    drupal_set_message(t('You are currently using the Default workspace. !create_link', array('!create_link' => l(t('Customize your own workspace.'), 'workspace/new', array('query' => array('destination' => 'workspace'))))), 'info');
     $workspace = science_apps_workspace_default_workspace();
   }
 
@@ -108,7 +110,7 @@ function science_apps_workspace_page_header($workspace) {
   $output = '<header><nav class="navbar navbar-default"><div class="container-fluid"><a class="navbar-brand" href="#">' . $workspace->name . '</a>';
 
   /* edit current workspace */
-  if ($workspace->wid && user_access('manage workspaces')) {
+  if ($workspace->wid && is_numeric($workspace->wid) && user_access('manage workspaces')) {
     $url = $workspace->wid ? 'workspace/edit/' . $workspace->wid : 'workspace/new';
     $output .= l('<i class="fa fa-th"></i> ' . t('Edit workspace'), $url, array('html' => TRUE, 'attributes' => array('class' => 'btn btn-default navbar-btn')));
   }
@@ -120,7 +122,7 @@ function science_apps_workspace_page_header($workspace) {
   $output .= '<button type="button" class="btn btn-default navbar-btn dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cog"></i><span class="sr-only">'.t('Settings').'</span></button>';
   $items = array();
   if (user_access('manage workspaces')) {
-    if ($workspace->wid) {
+    if ($workspace->wid && is_numeric($workspace->wid)) {
       $items[] = l(t('Edit this Workspace'), 'workspace/edit/' . $workspace->wid);
     }
     $items[] = l(t('Manage Workspaces'), 'workspace/configure');
