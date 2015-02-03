@@ -40,6 +40,10 @@ class Workspace {
     $this->config = json_encode($config_object);
   }
 
+  public function emptyConfig() {
+    $this->config = '{"rows":[{"columns":[{"type":"app","app":null}]}]}';
+  }
+
   public function save() {
     if ($this->wid) {
       // update
