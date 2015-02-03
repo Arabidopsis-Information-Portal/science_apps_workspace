@@ -16,7 +16,7 @@ class Workspace {
 
   public $changed;
 
-  function __construct($wid = 0, $uid = 0, $name = '', $config = '{"rows":[{"columns":[{"type":"app","app":null}]}]}', $status = 0, $created = 0, $changed = 0) {
+  function __construct($wid = 0, $uid = 0, $name = '', $config = FALSE, $status = 0, $created = 0, $changed = 0) {
     $this->wid = $wid;
     $this->uid = $uid;
     $this->name = $name;
@@ -26,8 +26,14 @@ class Workspace {
     $this->changed = $changed;
   }
 
+  public function isDefault() {
+    return $this->status == 1;
+  }
+
   public function getConfigObject() {
-    return json_decode($this->config);
+    if ($this->config) {
+      return json_decode($this->config);
+    }
   }
 
   public function setConfigObject($config_object) {

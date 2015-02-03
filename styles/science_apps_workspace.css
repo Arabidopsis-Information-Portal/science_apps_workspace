@@ -36,3 +36,23 @@
 .science-apps-workspace .row {
   margin-bottom: 30px;
 }
+
+#science-apps-workspace-admin-default-workspace .ws-row,
+#science-apps-workspace-admin-default-workspace .ws-cols {
+  margin: 15px 0;
+}
+
+#science-apps-workspace-admin-default-workspace .ws-cols:before,
+#science-apps-workspace-admin-default-workspace .ws-cols:after {
+  content: "";
+  display: table;
+  line-height: 0;
+}
+
+#science-apps-workspace-admin-default-workspace .ws-cols:after {
+  clear: both;
+}
+
+#science-apps-workspace-admin-default-workspace .ws-col {
+  float: left;
+}
