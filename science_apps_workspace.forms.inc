@@ -8,6 +8,7 @@ function science_apps_workspace_edit_form($form, &$form_state, $workspace = null
   if (! isset($form_state['workspace_config'])) {
     if (! $workspace) {
       $workspace = new Workspace();
+      $workspace->emptyConfig();
     }
     $form_state['workspace_config'] = $workspace->getConfigObject();
   }
