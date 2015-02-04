@@ -14,6 +14,35 @@ function science_apps_workspace_menu(){
     'file' => 'science_apps_workspace.pages.inc',
   );
 
+  $items['node/%node/science-app'] = array(
+    'title' => t('App Info'),
+    'description' => t('Information about this science app'),
+    'page callback' => 'science_apps_workspace_science_app_info',
+    'page arguments' => array(1),
+    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access arguments' => array('update', 1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['node/%node/science-app/info'] = array(
+    'title' => t('App Info'),
+    'description' => t('Information about this science app'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['node/%node/science-app/logs'] = array(
+    'title' => t('Update Logs'),
+    'description' => t('Log data generated while processing this science app'),
+    'page callback' => 'science_apps_workspace_science_app_info_logs',
+    'page arguments' => array(1),
+    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access arguments' => array('update', 1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
   $items['workspace/configure'] = array(
     'title' => t('Science Apps Workspace Configuration'),
     'description' => t('User-configurable workspace for using AIP Science applications'),
@@ -113,6 +142,22 @@ function science_apps_workspace_permission(){
   );
 
   return $perms;
+}
+
+/**
+ * Wrapper around `node_access` that only returns true for science apps. Used
+ * as a access permission for the "App Info" node local task to prevent the tab
+ * from being added to non-science_app nodes.
+ *
+ * @see node_access
+ * @see science_apps_workspace_menu
+ * @see science_apps_workspace_science_app_info
+ */
+function science_apps_workspace_science_app_info_access($op, $node) {
+  if ($node->type == 'science_app') {
+    return node_access($op, $node);
+  }
+  return FALSE;
 }
 
 function science_apps_workspace_workspace_access($workspace) {
@@ -365,28 +410,28 @@ function _science_apps_workspace_apps_repo($app_nid = null) {
  * 1. Finding science apps that need repository checked out
  *
  */
-function science_apps_workspace_cron() {
-  $apps_repository = _science_apps_workspace_apps_repo();
-  if (! file_prepare_directory($apps_repository, FILE_CREATE_DIRECTORY)) {
-    watchdog('science_apps_workspace', 'Unable to prepare the Science Apps Repository in @path!', array('@path' => $apps_repository), WATCHDOG_ERROR);
-  }
-
-  // load apps that still need to be checked out and dependencies resolved
-  $records = db_select('science_apps_workspace_app_config', 'app')
-    ->fields('app', array('nid'))
-    ->condition('ready', '0')
-    ->range(0,10)
-    ->execute();
-  while($nids = $records->fetchAssoc()) {
-    foreach ($nids as $nid) {
-      try {
-        _science_apps_workspace_prepare_app($nid);
-      } catch (Exception $e) {
-        drupal_set_message('error');
-      }
-    }
-  }
-}
+// function science_apps_workspace_cron() {
+//   $apps_repository = _science_apps_workspace_apps_repo();
+//   if (! file_prepare_directory($apps_repository, FILE_CREATE_DIRECTORY)) {
+//     watchdog('science_apps_workspace', 'Unable to prepare the Science Apps Repository in @path!', array('@path' => $apps_repository), WATCHDOG_ERROR);
+//   }
+//
+//   // load apps that still need to be checked out and dependencies resolved
+//   $records = db_select('science_apps_workspace_app_config', 'app')
+//     ->fields('app', array('nid'))
+//     ->condition('ready', '0')
+//     ->range(0,10)
+//     ->execute();
+//   while($nids = $records->fetchAssoc()) {
+//     foreach ($nids as $nid) {
+//       try {
+//         _science_apps_workspace_prepare_app($nid);
+//       } catch (Exception $e) {
+//         drupal_set_message('error');
+//       }
+//     }
+//   }
+// }
 
 function science_apps_workspace_prepare_app($node) {
   _science_apps_workspace_prepare_app($node->nid);
@@ -433,9 +478,9 @@ function _science_apps_workspace_app_repo_checkout($app_nid) {
     $output = exec(implode(';', $cmd), $output_log, $return_val);
     if ($return_val != 0) {
       $output_log[] = $output;
-      watchdog('science_apps_workspace', 'Git update for %application failed from url: @url; Logs: @logs', array('%application' => $app->title, '@url' => $repository_url, '@logs' => implode("\n", $output_log)), WATCHDOG_ERROR);
+      watchdog('science_apps_workspace', 'Git update for %application (nid=@nid) failed from url: @url; Logs: @logs', array('@nid' => $app->nid, '%application' => $app->title, '@url' => $repository_url, '@logs' => implode("\n", $output_log)), WATCHDOG_ERROR);
     } else {
-      watchdog('science_apps_workspace', 'Successfully updated repository for %application from url: @url; Logs: @log', array('%application' => $app->title,'@url' => $repository_url,'@log' => $output), WATCHDOG_INFO);
+      watchdog('science_apps_workspace', 'Successfully updated repository for %application (nid=@nid) from url: @url; Logs: @log', array('@nid' => $app->nid, '%application' => $app->title,'@url' => $repository_url,'@log' => $output), WATCHDOG_INFO);
       return TRUE;
     }
   } else if (file_prepare_directory($checkout_dir, FILE_CREATE_DIRECTORY)) {
@@ -447,13 +492,13 @@ function _science_apps_workspace_app_repo_checkout($app_nid) {
     }
     exec($git_command, $git_log, $return_val);
     if ($return_val != 0) {
-      watchdog('science_apps_workspace', 'Unable to clone repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_ERROR);
+      watchdog('science_apps_workspace', 'Unable to clone repository for %application (nid=@nid) from url: @url', array('@nid' => $app->nid, '%application' => $app->title,'@url' => $repository_url), WATCHDOG_ERROR);
     } else {
-      watchdog('science_apps_workspace', 'Successfully cloned repository for %application from url: @url', array('%application' => $app->title,'@url' => $repository_url), WATCHDOG_INFO);
+      watchdog('science_apps_workspace', 'Successfully cloned repository for %application (nid=@nid) from url: @url', array('@nid' => $app->nid, '%application' => $app->title,'@url' => $repository_url), WATCHDOG_INFO);
       return TRUE;
     }
   } else {
-    watchdog('science_apps_workspace', 'Unable to create checkout directory for %application at @path!', array('%application' => $app->title,'@path' => $checkout_dir), WATCHDOG_ERROR);
+    watchdog('science_apps_workspace', 'Unable to create checkout directory for %application (nid=@nid) at @path!', array('@nid' => $app->nid, '%application' => $app->title,'@path' => $checkout_dir), WATCHDOG_ERROR);
   }
   return FALSE;
 }
@@ -480,12 +525,11 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
       // hopefully the version is semver
       if (preg_match($semver_regex, $version_str)) {
         $name = $lib_str . '-' . preg_replace($semver_regex, '\1\2', $version_str);
-        $deps[$name] = $lib . '#' . $version;
       } else {
         // do our best
         $name = $lib_str . '-' . preg_replace('/[^[:alnum:].]+/', '-', $version_str);
-        $deps[$name] = $version;
       }
+      $deps[$name] = "$lib#$version";
     }
   }
   return $deps;
@@ -517,27 +561,27 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
               // check each dependency
               foreach ($bower->main as $main) {
                 if (! is_file($dep_path . $main)) {
-                  watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_ERROR);
+                  watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_ERROR);
                   $ready = FALSE;
                 }
               }
             } else if (! is_file($dep_path . $bower->main)) {
-              watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_ERROR);
+              watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_ERROR);
               $ready = FALSE;
             }
           } else {
             $ready = FALSE;
             drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib)), 'error');
-            watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+            watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
           }
         } else {
           $ready = FALSE;
           drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib)), 'error');
-          watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+          watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
         }
       } else {
         $ready = FALSE;
-        watchdog('science_apps_workspace', 'SciApp (nid=%application) declared dependency (%lib, %version) has not been prepared yet.', array('%application' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+        watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) has not been prepared yet.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
       }
     }
   }
@@ -552,33 +596,80 @@ function _science_apps_workspace_app_dependencies_process($app_nid) {
     foreach ($deps as $lib => $version) {
       $dep_path = implode(DIRECTORY_SEPARATOR, array($dependencies_dir, 'bower_components', $lib));
       if (! ( is_dir($dep_path) && is_file($dep_path . '/bower.json') )) {
-        $bower_commands[] = 'bower install ' . escapeshellarg($lib . '=' . $version);
+        $bower_commands[] = 'bower install -f ' . escapeshellarg($lib . '=' . $version);
       }
     }
     if (count($bower_commands) > 0) {
       array_unshift($bower_commands, escapeshellcmd('cd ' . drupal_realpath(_science_apps_dependency_path())));
       $cmd = implode(';', $bower_commands);
-      watchdog('science_apps_workspace', 'Dependency command for SciApp nid=@app :'."\n".'@cmd', array('@app' => $app_nid,'@cmd' => $cmd), WATCHDOG_INFO);
+      watchdog('science_apps_workspace', 'Dependency command for SciApp nid=@nid :'."\n".'@cmd', array('@nid' => $app_nid,'@cmd' => $cmd), WATCHDOG_INFO);
       $out = exec($cmd, $bower_log, $return_var);
       if ($return_var != 0) {
-        watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed:'."\n".'@errors', array('@app' => $app_nid,'@errors' => $out.$return_var.implode("\n", $bower_log)), WATCHDOG_ERROR);
+        watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid failed:'."\n".'@errors', array('@nid' => $app_nid,'@errors' => $out.$return_var.implode("\n", $bower_log)), WATCHDOG_ERROR);
       } else {
-        watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@app:'."\n".'@output', array('@app' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
+        watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@nid:'."\n".'@output', array('@nid' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
         return TRUE;
       }
     }
   } else {
-    watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@app failed: unable to create directory for science_apps_dependency_path @path', array('@app' => $app_nid,'@path' => $dependencies_dir), WATCHDOG_ERROR);
+    watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid failed: unable to create directory for science_apps_dependency_path @path', array('@nid' => $app_nid,'@path' => $dependencies_dir), WATCHDOG_ERROR);
   }
   return FALSE;
 }
 
 function science_apps_workspace_theme() {
+  $template_path = drupal_get_path('module', 'science_apps_workspace'). '/theme';
   return array(
     'science_app_display' => array(
       'variables' => array(
         'node' => null,
       ),
+    ),
+
+    'science_app_information' => array(
+      'variables' => array(
+        'node' => null,
+        'author' => null,
+        'repo' => null,
+        'version' => null,
+        'published' => null,
+      ),
+      'template' => 'app_info',
+      'path' => $template_path,
+    ),
+
+    'science_app_logs' => array(
+      'variables' => array(
+        'node' => null,
+        'logs' => array(),
+      ),
+      'template' => 'app_logs',
+      'path' => $template_path,
+    ),
+
+    'science_apps_workspace_header' => array(
+      'variables' => array(
+        'workspace_name' => null,
+        'edit_workspace_link' => null,
+        'workspace_settings_links' => null,
+        'workspace_switcher_links' => null
+      ),
+      'template' => 'app_workspace_header',
+      'path' => $template_path,
+    ),
+
+    'science_app_removed' => array(
+      'variables' => array(
+        'node' => null,
+      ),
+      'template' => 'app_removed',
+      'path' => $template_path,
+    ),
+
+    'science_app_placeholder' => array(
+      'variables' => array('anonymous' => TRUE),
+      'template' => 'app_placeholder',
+      'path' => $template_path,
     ),
   );
 }
@@ -692,4 +783,30 @@ function science_apps_workspace_default_workspace() {
   $workspace->name = variable_get('science_apps_workspace_default_name', t('Default'));
   $workspace->config = variable_get('science_apps_workspace_default_config', '{"rows":[{"columns":[{"type":"app","app":null}]}]}');
   return $workspace;
+}
+
+/**
+ * Implements hook_watchdog()
+ * @see hook_watchdog
+ */
+function science_apps_workspace_watchdog(array $log_entry) {
+
+  if ($log_entry['type'] == 'science_apps_workspace') {
+    if ($nid = $log_entry['variables']['@nid']) {
+      $uid = $log_entry['uid'];
+      $type = substr($log_entry['type'], 0, 64);
+      $message = $log_entry['message'];
+      $variables = serialize($log_entry['variables']);
+      $severity = $log_entry['severity'];
+      $link = substr($log_entry['link'], 0, 255);
+      $location = $log_entry['request_uri'];
+      $referer = $log_entry['referer'];
+      $hostname = substr($log_entry['ip'], 0, 128);
+      $timestamp = $log_entry['timestamp'];
+
+      db_insert('science_apps_workspace_app_log')->fields(
+        compact('nid','uid','type','message','variables','severity','link','location','referer','hostname','timestamp')
+      )->execute();
+    }
+  }
 }
