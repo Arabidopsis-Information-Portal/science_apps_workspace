@@ -81,45 +81,23 @@ function science_apps_workspace_render_app($app) {
     if ($app_node) {
       $output .= theme('science_app_display', array('node' => $app_node));
     } else {
-      $output .= science_apps_workspace_render_missing_app();
+      $output .= theme('science_app_removed', array('node' => $app_node));
     }
   } else {
-    $output .= science_apps_workspace_render_placeholder();
+    $output .= theme('science_app_placeholder', array('anonymous' => user_is_anonymous()));
   }
   $output .= '</div>';
   return $output;
 }
 
-function science_apps_workspace_render_missing_app() {
-  return '<div class="alert alert-warning"><h4>This app has been removed.</h4><p>This application is no longer available on the portal. Please update your workspace configuration.</p></div>';
-}
-
-function science_apps_workspace_render_placeholder() {
-  global $user;
-  $placeholder = '<div class="app-placeholder">';
-  if ($user->uid) {
-    $placeholder .= '<h1>Choose an app!</h1><p>Click the Workspace Settings button <button disabled type="button" class="btn btn-default"><i class="fa fa-cog"></i></button> at the top of the page to configure your workspace.</p>';
-  } else {
-    $placeholder .= '<h1>Log in to customize your workspace!</h1><p>Araport users can create customized workspaces tailored to their workflows. <a href="/user/login">Log in</a> or <a href="/user/register">create an account</a> now!</p>';
-  }
-  $placeholder .= '</div>';
-  return $placeholder;
-}
-
 function science_apps_workspace_page_header($workspace) {
-  $output = '<header><nav class="navbar navbar-default"><div class="container-fluid"><a class="navbar-brand" href="#">' . $workspace->name . '</a>';
+  $workspace_name = $workspace->name;
 
-  /* edit current workspace */
   if ($workspace->wid && is_numeric($workspace->wid) && user_access('manage workspaces')) {
     $url = $workspace->wid ? 'workspace/edit/' . $workspace->wid : 'workspace/new';
-    $output .= l('<i class="fa fa-th"></i> ' . t('Edit workspace'), $url, array('html' => TRUE, 'attributes' => array('class' => 'btn btn-default navbar-btn')));
+    $edit_workspace_link = l('<i class="fa fa-th"></i> ' . t('Edit workspace'), $url, array('html' => TRUE, 'attributes' => array('class' => 'btn btn-default navbar-btn')));
   }
 
-  $output .= '<div class="navbar-right">';
-
-  /* workspace management */
-  $output .= '<div class="btn-group">';
-  $output .= '<button type="button" class="btn btn-default navbar-btn dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cog"></i><span class="sr-only">'.t('Settings').'</span></button>';
   $items = array();
   if (user_access('manage workspaces')) {
     if ($workspace->wid && is_numeric($workspace->wid)) {
@@ -131,8 +109,7 @@ function science_apps_workspace_page_header($workspace) {
     $items[] = array('data' => '', 'class' => array('divider'));
     $items[] = l(t('Create New App'), 'node/add/science-app');
   }
-  $output .= theme('item_list', array('items' => $items, 'attributes' => array('class' => 'dropdown-menu', 'role' => 'menu')));
-  $output .= '</div> ';
+  $workspace_settings_links = theme('item_list', array('items' => $items, 'attributes' => array('class' => 'dropdown-menu', 'role' => 'menu')));
 
   /* workspace switcher */
   global $user;
@@ -152,20 +129,10 @@ function science_apps_workspace_page_header($workspace) {
       'data' => l(t('Default Workspace'), 'workspace/default'),
       'class' => array($workspace->wid == 'default' ? 'active' : '')
     );
-
-    $output .= '<div class="btn-group">';
-    $output .= '<button type="button" class="btn btn-default navbar-btn dropdown-toggle" data-toggle="dropdown"><i class="fa fa-bars"></i><span class="sr-only">'.t('Change Workspace').'</span></button>';
-    $output .= theme('item_list', array('items' => $items, 'attributes' => array('class' => 'dropdown-menu', 'role' => 'menu')));
-    $output .= '</div> ';
+    $workspace_switcher_links = theme('item_list', array('items' => $items, 'attributes' => array('class' => 'dropdown-menu', 'role' => 'menu')));
   }
 
-  /* close up navbar-right */
-  $output .= '</div>';
-
-  /* close up header*/
-  $output .= '</div></nav></header>';
-
-  return $output;
+  return theme('science_apps_workspace_header', compact('workspace_name', 'edit_workspace_link', 'workspace_settings_links', 'workspace_switcher_links'));
 }
 
 function science_apps_workspace_config($wid = null) {
@@ -216,4 +183,29 @@ function science_apps_workspace_config($wid = null) {
   }
 
   return $output;
+}
+
+function science_apps_workspace_science_app_info($node) {
+  $author = user_load($node->uid);
+  $repo = $node->science_app_repository['und'][0]['value'];
+  $version = $node->science_app_version['und'][0]['value'];
+  $published = $node->status;
+  return theme('science_app_information', compact('node', 'author', 'repo', 'version', 'published'));
+}
+
+function science_apps_workspace_science_app_info_logs($node) {
+  $result_set = db_select('science_apps_workspace_app_log', 'log')
+  ->fields('log')
+  ->condition('log.nid', $node->nid)
+  ->execute();
+
+  $logs = array();
+  while ($record = $result_set->fetchAssoc()) {
+    $vars = unserialize($record['variables']);
+    $logs[] = array(
+      'timestamp' => $record['timestamp'],
+      'message' => t($record['message'], $vars),
+    );
+  }
+  return theme('science_app_logs', compact('node', 'logs'));
 }
