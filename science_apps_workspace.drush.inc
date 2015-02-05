@@ -56,7 +56,7 @@ function drush_science_apps_workspace_list_unprocessed() {
     foreach ($records as $r) {
       $node = node_load($r->nid);
       $title = substr($node->title, 0, 25);
-      print "$nid\t\t$title\n";
+      print "$r->nid\t\t$title\n";
     }
     print "\n";
   }
@@ -73,7 +73,7 @@ function drush_science_apps_workspace_list_unprocessed() {
     foreach ($records as $r) {
       $node = node_load($r->nid);
       $title = substr($node->title, 0, 25);
-      print "$nid\t\t$title\n";
+      print "$r->nid\t\t$title\n";
     }
   }
 }
