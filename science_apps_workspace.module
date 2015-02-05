@@ -555,7 +555,7 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
 
       $lib_str = strtolower($lib);
       $version_str = strtolower($version);
-      $name = preg_replace('/[^[:alnum:].]+/', '-', $lib_str.$version_str);
+      $name = preg_replace('/[^[:alnum:].]+/', '_', $lib_str.'_'.$version_str);
       // hopefully the version is semver
       if (preg_match($semver_regex, $version_str) || $version_str == '*') {
         $value = "$lib#$version";
