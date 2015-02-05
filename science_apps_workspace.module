@@ -48,6 +48,17 @@ function science_apps_workspace_menu(){
     'file' => 'science_apps_workspace.pages.inc',
   );
 
+  $items['node/%node/science-app/logs/clear'] = array(
+    'title' => t('Clear App Logs'),
+    'description' => t('Clear Log data generated while processing this science app'),
+    'page callback' => 'science_apps_workspace_science_app_info_logs_clear',
+    'page arguments' => array(1),
+    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access arguments' => array('update', 1),
+    'type' => MENU_CALLBACK,
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
   $items['user/%user/science-apps'] = array(
     'description' => 'Display science apps created by a user.',
     'title callback' => 'science_apps_workspace_user_apps_title',
@@ -450,35 +461,6 @@ function science_apps_workspace_user_apps($account) {
     'rows' => $rows
   ));
 }
-
-// /**
-//  * Implements hook_cron().
-//  * Scheduled tasks include:
-//  * 1. Finding science apps that need repository checked out
-//  *
-//  */
-// function science_apps_workspace_cron() {
-//   $apps_repository = _science_apps_workspace_apps_repo();
-//   if (! file_prepare_directory($apps_repository, FILE_CREATE_DIRECTORY)) {
-//     watchdog('science_apps_workspace', 'Unable to prepare the Science Apps Repository in @path!', array('@path' => $apps_repository), WATCHDOG_ERROR);
-//   }
-//
-//   // load apps that still need to be checked out and dependencies resolved
-//   $records = db_select('science_apps_workspace_app_config', 'app')
-//     ->fields('app', array('nid'))
-//     ->condition('ready', '0')
-//     ->range(0,10)
-//     ->execute();
-//   while($nids = $records->fetchAssoc()) {
-//     foreach ($nids as $nid) {
-//       try {
-//         _science_apps_workspace_prepare_app($nid);
-//       } catch (Exception $e) {
-//         drupal_set_message('error');
-//       }
-//     }
-//   }
-// }
 
 function science_apps_workspace_prepare_app($node) {
   _science_apps_workspace_prepare_app($node->nid);

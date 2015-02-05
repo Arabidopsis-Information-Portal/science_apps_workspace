@@ -207,5 +207,16 @@ function science_apps_workspace_science_app_info_logs($node) {
       'message' => t($record['message'], $vars),
     );
   }
-  return theme('science_app_logs', compact('node', 'logs'));
+
+  $clear_logs_link = l(t('Clear App Logs'), "node/$node->nid/science-app/logs/clear", array('attributes' => array('class' => 'btn btn-danger')));
+
+  return theme('science_app_logs', compact('node', 'logs', 'clear_logs_link'));
+}
+
+function science_apps_workspace_science_app_info_logs_clear($node) {
+  db_delete('science_apps_workspace_app_log')
+  ->condition('nid', $node->nid)
+  ->execute();
+  drupal_set_message('App Logs Cleared!');
+  drupal_goto("node/$node->nid/science-app");
 }
