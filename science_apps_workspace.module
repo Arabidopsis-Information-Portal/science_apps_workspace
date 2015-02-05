@@ -615,7 +615,7 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
         }
       } else {
         $ready = FALSE;
-        watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) has not been prepared yet.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+        watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) has not been prepared yet.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_INFO);
       }
     }
   }
