@@ -17,7 +17,7 @@ function science_apps_workspace_drush_command() {
 
   $items['apps-process'] = array(
     'description' => 'Process science apps that have not yet been processed.',
-    'aliases' => array('sciapps-appsproc', 'saw-appsproc'),
+    'aliases' => array('sciapps-apps-proc', 'saw-apps-proc'),
     'options' => array(
       'nid' => 'The NID of a single app to process.',
       'limit' => 'Limit the number of apps to process at a time. Defaults to 10. Ignored if --nid passed',
@@ -35,30 +35,46 @@ function drush_science_apps_workspace_check_ready_state() {
     $nid = $r['nid'];
     if (_science_apps_workspace_app_repo_ready($nid) && _science_apps_workspace_app_dependencies_ready($nid)) {
       print "App nid=$nid READY\n";
-      science_apps_workspace_set_app_config_ready($nid, TRUE);
+      science_apps_workspace_set_app_config_ready($nid, SCIENCE_APP_STATE_READY);
     } else {
-      science_apps_workspace_set_app_config_ready($nid, FALSE);
+      science_apps_workspace_set_app_config_ready($nid, SCIENCE_APP_STATE_NOT_READY);
       print "App nid=$nid NOT READY\n";
     }
   }
 }
 
 function drush_science_apps_workspace_list_unprocessed() {
-  print "The following Science Apps are NOT READY:\n\n";
-  print "NID\t\tTitle\n======\t\t=========================\n";
-  $query = db_select('science_apps_workspace_app_config', 'app')
-    ->fields('app', array('nid'));
-
+  // not ready apps
+  $query = db_select('science_apps_workspace_app_config', 'app')->fields('app', array('nid'));
   if ($limit = drush_get_option('limit', FALSE)) {
     $query->range(0, $limit);
   }
+  $records = $query->condition('ready', SCIENCE_APP_STATE_NOT_READY)->execute()->fetchAll();
+  if ($records) {
+    print "The following Science Apps are NOT READY:\n\n";
+    print "NID\t\tTitle\n======\t\t=========================\n";
+    foreach ($records as $r) {
+      $node = node_load($r->nid);
+      $title = substr($node->title, 0, 25);
+      print "$nid\t\t$title\n";
+    }
+    print "\n";
+  }
 
-  $records = $query->condition('ready', '0')->execute();
-  while ($r = $records->fetchAssoc()) {
-    $nid = $r['nid'];
-    $node = node_load($nid);
-    $title = substr($node->title, 0, 25);
-    print "$nid\t\t$title\n";
+  // error state apps
+  $query = db_select('science_apps_workspace_app_config', 'app')->fields('app', array('nid'));
+  if ($limit = drush_get_option('limit', FALSE)) {
+    $query->range(0, $limit);
+  }
+  $records = $query->condition('ready', SCIENCE_APP_STATE_ERROR)->execute()->fetchAll();
+  if ($records) {
+    print "The following Science Apps are ERROR STATE:\n\n";
+    print "NID\t\tTitle\n======\t\t=========================\n";
+    foreach ($records as $r) {
+      $node = node_load($r->nid);
+      $title = substr($node->title, 0, 25);
+      print "$nid\t\t$title\n";
+    }
   }
 }
 
@@ -73,14 +89,19 @@ function drush_science_apps_workspace_apps_process() {
       ->fields('app', array('nid'))
       ->condition('ready', '0')
       ->range(0, $limit)
-      ->execute();
-    while ($r = $records->fetchAssoc()) {
-      $app_nids[] = $r['nid'];
+      ->execute()
+      ->fetchAll();
+    foreach ($records as $r) {
+      $app_nids[] = $r->nid;
     }
   }
 
-  foreach ($app_nids as $nid) {
-    print "Processing Science App nid=$nid...\n";
-    _science_apps_workspace_prepare_app($nid);
+  if (count($app_nids)) {
+    foreach ($app_nids as $nid) {
+      print "Processing Science App nid=$nid...\n";
+      _science_apps_workspace_prepare_app($nid);
+    }
+  } else {
+    print "No apps to process!\n";
   }
 }

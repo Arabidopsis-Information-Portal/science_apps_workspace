@@ -188,7 +188,7 @@ function science_apps_workspace_config($wid = null) {
 function science_apps_workspace_science_app_info($node) {
   $author = user_load($node->uid);
   $repo = $node->science_app_repository['und'][0]['value'];
-  $version = $node->science_app_version['und'][0]['value'];
+  $version = $node->science_app_version ? $node->science_app_version['und'][0]['value'] : 'master';
   $published = $node->status;
   return theme('science_app_information', compact('node', 'author', 'repo', 'version', 'published'));
 }
