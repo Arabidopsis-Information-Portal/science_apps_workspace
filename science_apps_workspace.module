@@ -110,13 +110,13 @@ function science_apps_workspace_menu(){
     'access callback' => 'science_apps_workspace_workspace_access',
   );
 
-  $items['workspace/prepare-app/%node'] = array(
-    'type' => MENU_CALLBACK,
-    'page callback' => 'science_apps_workspace_prepare_app',
-    'page arguments' => array(2),
-    'access callback' => 'node_access',
-    'access arguments' => array('update', 2),
-  );
+  // $items['workspace/prepare-app/%node'] = array(
+  //   'type' => MENU_CALLBACK,
+  //   'page callback' => 'science_apps_workspace_prepare_app',
+  //   'page arguments' => array(2),
+  //   'access callback' => 'node_access',
+  //   'access arguments' => array('update', 2),
+  // );
 
   $items['admin/config/araport'] = array(
     'title' => 'Araport',
@@ -462,10 +462,10 @@ function science_apps_workspace_user_apps($account) {
   ));
 }
 
-function science_apps_workspace_prepare_app($node) {
-  _science_apps_workspace_prepare_app($node->nid);
-  drupal_goto('node/'.$node->nid);
-}
+// function science_apps_workspace_prepare_app($node) {
+//   _science_apps_workspace_prepare_app($node->nid);
+//   drupal_goto('node/'.$node->nid);
+// }
 
 function _science_apps_workspace_prepare_app($nid) {
    watchdog('science_apps_workspace', 'Preparing app nid=@nid', array('@nid'=>$nid));
@@ -757,7 +757,7 @@ function theme_science_app_display($vars) {
     $output = '<div class="science-app-pending">';
     $output .= '<h1><i class="fa fa-refresh fa-spin"></i> Preparing this application...</h1>';
     $output .= '<p>We are still getting this application ready. Please check back soon!</p>';
-    $output .= '<p>'.l(t('Check Now'), 'workspace/prepare-app/'.$node->nid, array('attributes' => array('class' => 'btn btn-primary'))).'</p>';
+    // $output .= '<p>'.l(t('Check Now'), 'workspace/prepare-app/'.$node->nid, array('attributes' => array('class' => 'btn btn-primary'))).'</p>';
 
     $items = array();
     foreach ($prep_steps as $step) {
