@@ -171,6 +171,20 @@ function science_apps_workspace_permission(){
 }
 
 /**
+ * Implements hook_node_access()
+ * DENY access for science_app nodes, published or not, to anonymous.
+ */
+function science_apps_workspace_node_access($node, $op, $account) {
+  $type = is_string($node) ? $node : $node->type;
+  if ($type == 'science_app') {
+    if (user_is_anonymous()) {
+      return NODE_ACCESS_DENY;
+    }
+  }
+  return NODE_ACCESS_IGNORE;
+}
+
+/**
  * Wrapper around `node_access` that only returns true for science apps. Used
  * as a access permission for the "App Info" node local task to prevent the tab
  * from being added to non-science_app nodes.
