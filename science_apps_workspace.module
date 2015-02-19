@@ -609,13 +609,11 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
               // check each dependency
               foreach ($bower->main as $main) {
                 if (! is_file($dep_path . $main)) {
-                  watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_ERROR);
-                  $ready = FALSE;
+                  watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_WARNING);
                 }
               }
             } else if (! is_file($dep_path . $bower->main)) {
-              watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_ERROR);
-              $ready = FALSE;
+              watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_WARNING);
             }
           } else {
             $ready = FALSE;
