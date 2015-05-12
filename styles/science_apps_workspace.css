@@ -56,3 +56,35 @@
 #science-apps-workspace-admin-default-workspace .ws-col {
   float: left;
 }
+
+.science-app-preview.reveal-description {
+  z-index: 10;
+}
+
+.science-app-preview .thumbnail {
+  background-color: #fff;
+}
+
+.science-app-preview .app-description {
+  height: 150px;
+  overflow: hidden;
+  position: relative;
+  -webkit-transition: height 250ms ease-in-out;
+  -moz-transition: height 250ms ease-in-out;
+  -o-transition: height 250ms ease-in-out;
+  transition: height 250ms ease-in-out;
+}
+
+.science-app-preview .app-description:after {
+  content: "";
+  display: block;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 1em;
+  background-image: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+}
+
+.science-app-preview .app-description.app-description-reveal:after {
+  display: none;
+}

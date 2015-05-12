@@ -220,3 +220,32 @@ function science_apps_workspace_science_app_info_logs_clear($node) {
   drupal_set_message('App Logs Cleared!');
   drupal_goto("node/$node->nid/science-app");
 }
+
+function science_apps_workspace_catalog() {
+  $query = new EntityFieldQuery();
+  $apps = $query->entityCondition('entity_type', 'node')
+                    ->entityCondition('bundle', 'science_app')
+                    ->propertyCondition('status', NODE_PUBLISHED)
+                    ->propertyOrderBy('title', 'ASC')
+                    ->execute();
+  $apps = node_load_multiple(array_keys($apps['node']));
+  $previews = array();
+  foreach ($apps as $app) {
+    $link = user_access('use science apps') ?
+      l(t('Preview This App'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))) :
+      l(t('Login to Preview This App'), "user/login", array('attributes' => array('class' => array('btn', 'btn-default')), 'query' => array('destination' => "node/{$app->nid}")));
+    $previews[] = array(
+      '#theme' => 'science_app_preview',
+      '#node' => $app,
+      '#link' => $link,
+      '#app_preview_classes' => array('science-app-preview', 'col-lg-3', 'col-sm-4', 'col-xs-6'),
+    );
+  }
+
+  _science_apps_workspace_app_preview_js();
+  return array(
+    '#prefix' => '<div class="row">',
+    '#suffix' => '</div>',
+    'children' => $previews,
+  );
+}

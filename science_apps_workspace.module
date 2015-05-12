@@ -12,10 +12,19 @@ function science_apps_workspace_menu(){
 
   $items['workspace'] = array(
     'title' => t('Science Apps Workspace'),
-    'description' => t('User-configurable workspace for using AIP Science applications'),
+    'description' => t('User-configurable workspace for using Araport Science applications'),
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_page',
-    'access arguments' => array('use science apps'),
+    'access callback' => TRUE,
+    'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['apps-catalog'] = array(
+    'title' => t('Science Apps Catalog'),
+    'description' => t('Catalog of Araport Science Applications'),
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'science_apps_workspace_catalog',
+    'access arguments' => array('access content'),
     'file' => 'science_apps_workspace.pages.inc',
   );
 
@@ -71,7 +80,7 @@ function science_apps_workspace_menu(){
 
   $items['workspace/configure'] = array(
     'title' => t('Science Apps Workspace Configuration'),
-    'description' => t('User-configurable workspace for using AIP Science applications'),
+    'description' => t('User-configurable workspace for using Araport Science applications'),
     'type' => MENU_CALLBACK,
     'page callback' => 'science_apps_workspace_config',
     'page arguments' => array(2),
@@ -168,6 +177,108 @@ function science_apps_workspace_permission(){
   );
 
   return $perms;
+}
+
+/**
+ * Implements hook_block_info
+ */
+function science_apps_workspace_block_info() {
+  $blocks = array();
+
+  $blocks['apps_catalog_latest_apps'] = array(
+    'info' => t('Latest Science Apps'),
+    'cache' => DRUPAL_NO_CACHE
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view
+ */
+function science_apps_workspace_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+  case 'apps_catalog_latest_apps':
+    $query = new EntityFieldQuery();
+    $range = variable_get('apps_catalog_latest_apps_block_count', 2);
+    $apps = $query->entityCondition('entity_type', 'node')
+                      ->entityCondition('bundle', 'science_app')
+                      ->propertyCondition('status', NODE_PUBLISHED)
+                      ->propertyOrderBy('changed', 'DESC')
+                      ->range(0, $range)
+                      ->execute();
+    $apps = node_load_multiple(array_keys($apps['node']));
+    $previews = array();
+
+    $preview_classes = explode(' ', variable_get('apps_catalog_latest_apps_block_class', 'col-xs-6'));
+    $preview_classes[] = 'science-app-preview';
+    foreach ($apps as $app) {
+      $link = user_access('use science apps') ?
+        l(t('Preview This App'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))) :
+        l(t('Login to Preview This App'), "user/login", array('attributes' => array('class' => array('btn', 'btn-default')), 'query' => array('destination' => "node/{$app->nid}")));
+
+
+      $previews[] = array(
+        '#theme' => 'science_app_preview',
+        '#node' => $app,
+        '#link' => $link,
+        '#app_preview_classes' => $preview_classes,
+      );
+    }
+
+    /* js for preview descriptions */
+    _science_apps_workspace_app_preview_js();
+
+    $block['content'] = array(
+      array(
+        '#prefix' => '<div class="row">',
+        '#suffix' => '</div>',
+        'children' => $previews,
+      ),
+      array(
+        '#markup' => l(t('View the Full Apps Catalog'), 'apps-catalog', array('attributes' => array('class' => array('btn','btn-link','btn-block'))))
+      )
+    );
+    $block['subject'] = t('Latest Science Apps');
+    break;
+  }
+
+  return $block;
+}
+
+/**
+ * Implements hook_block_configure
+ */
+function science_apps_workspace_block_configure($delta = '') {
+  $form = array();
+  switch ($delta) {
+  case 'apps_catalog_latest_apps':
+    $form['apps_catalog_latest_apps_block_count'] = array(
+      '#type' => 'select',
+      '#title' => t('Number of App Previews to Display'),
+      '#default_value' => variable_get('apps_catalog_latest_apps_block_count', 2),
+      '#options' => drupal_map_assoc(array(2,3,4,5,6,7,8,9,10,15,20,25,30)),
+    );
+    $form['apps_catalog_latest_apps_block_class'] = array(
+      '#type' => 'textfield',
+      '#title' => t('CSS class(es) to apply to App Preview'),
+      '#description' => t('Each preview will automatically get the <code>science-app-preview</code> class. The class(es) here will be added additionally. Separate multiple classes with a space.'),
+      '#default_value' => variable_get('apps_catalog_latest_apps_block_class', 'col-xs-6'),
+    );
+    break;
+  }
+  return $form;
+}
+
+function science_apps_workspace_block_save($delta = '', $edit = array()) {
+  switch ($delta) {
+  case 'apps_catalog_latest_apps':
+    variable_set('apps_catalog_latest_apps_block_count', $edit['apps_catalog_latest_apps_block_count']);
+    variable_set('apps_catalog_latest_apps_block_class', $edit['apps_catalog_latest_apps_block_class']);
+    break;
+  }
 }
 
 /**
@@ -673,6 +784,16 @@ function science_apps_workspace_theme() {
       ),
     ),
 
+    'science_app_preview' => array(
+      'variables' => array(
+        'node' => null,
+        'link' => null,
+        'app_preview_classes' => array('science-app-preview'),
+      ),
+      'template' => 'app_preview',
+      'path' => $template_path,
+    ),
+
     'science_app_information' => array(
       'variables' => array(
         'node' => null,
@@ -839,7 +960,8 @@ function science_apps_workspace_default_workspace() {
 function science_apps_workspace_watchdog(array $log_entry) {
 
   if ($log_entry['type'] == 'science_apps_workspace') {
-    if ($nid = $log_entry['variables']['@nid']) {
+    if (isset($log_entry['variables']['@nid'])) {
+      $nid = $log_entry['variables']['@nid'];
       $uid = $log_entry['uid'];
       $type = substr($log_entry['type'], 0, 64);
       $message = $log_entry['message'];
@@ -856,4 +978,34 @@ function science_apps_workspace_watchdog(array $log_entry) {
       )->execute();
     }
   }
+}
+
+
+function _science_apps_workspace_app_preview_js() {
+  $script = <<<JS
+(function($) {
+  $('.science-app-preview .app-description').on('click', function() {
+    var overflow = this.scrollHeight - this.clientHeight;
+    if (overflow > 0) {
+      $(this)
+      .data('height', this.clientHeight)
+      .css({'height': this.scrollHeight})
+      .closest('.science-app-preview')
+      .addClass('reveal-description')
+      .css({'margin-bottom': -overflow});
+    }
+  });
+  $('.science-app-preview').on('mouseleave', function() {
+    var _self = $(this);
+    var _desc = $('.app-description', _self);
+    var originalHeight = _desc.data('height');
+    _desc.css({'height': originalHeight});
+    setTimeout(function() {
+      _self.removeClass('reveal-description')
+      .css({'margin-bottom': null});
+    }, 250);
+  });
+})(jQuery);
+JS;
+  drupal_add_js($script, array('type' => 'inline', 'scope' => 'footer'));
 }
