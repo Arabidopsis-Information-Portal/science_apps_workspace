@@ -4,6 +4,9 @@
  * Implements hook_schema();
  */
 function science_apps_workspace_schema() {
+  /*
+   *
+   */
   $schema['science_apps_workspace_app_config'] = array(
     'description' => 'Table for saving the individual configuration and status for apps.',
     'fields' => array(
@@ -21,13 +24,13 @@ function science_apps_workspace_schema() {
         'not null' => TRUE,
       ),
       'ready' => array(
-        'description' => 'Boolean indicating whether the app is ready, i.e. it is checked out and any dependencies are resolved.',
+        'description' => 'Flag indicating whether the app is ready, i.e. it is checked out and any dependencies are resolved.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
       ),
       'published' => array(
-        'description' => 'Boolean indicating whether the app is available in the public apps catalog.',
+        'description' => 'Flag indicating whether the app is available in the public apps catalog.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
@@ -49,6 +52,9 @@ function science_apps_workspace_schema() {
     'primary key' => array('aid'),
   );
 
+  /*
+   *
+   */
   $schema['science_apps_workspace_user_config'] = array(
     'description' => 'Table for saving the workspace configurations for individual users.',
     'fields' => array(
@@ -110,8 +116,11 @@ function science_apps_workspace_schema() {
     'primary key' => array('wid'),
   );
 
+  /*
+   *
+   */
   $schema['science_apps_workspace_app_log'] = array(
-    'description' => 'Table for saving the individual configuration and status for apps.',
+    'description' => 'Table for saving log events for individual apps.',
     'fields' => array(
       'lid' => array(
         'description' => 'The primary identifier for a log record.',
@@ -203,6 +212,91 @@ function science_apps_workspace_schema() {
     'primary key' => array('lid'),
   );
 
+  /*
+   *
+   */
+  $schema['science_apps_workspace_app_publication_request'] = array(
+    'description' => 'Table for managing publication requests for apps.',
+    'fields' => array(
+      'rid' => array(
+        'description' => 'The primary identifier for a publication request.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'The science_app {node} this record relates to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The {users}.uid of the user who created the request.',
+      ),
+      'description' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'User description of app',
+      ),
+      'data_sources' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'User-provided data sourcing/provenance information',
+      ),
+      'technical_contact_name' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => 'Technical contact for app name',
+      ),
+      'technical_contact_mail' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => 'Technical contact for app email',
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Status of the publication request',
+      ),
+      'publication_notes' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'Notes from the review team',
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the request was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the request was most recently updated.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+    ),
+    'indexes' => array(
+      'request_nid' => array('nid'),
+    ),
+    'foreign keys' => array(
+      'app_node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+    ),
+    'primary key' => array('rid'),
+  );
+
   return $schema;
 }
 
@@ -227,7 +321,7 @@ function science_apps_workspace_install() {
  */
 function science_apps_workspace_update_7001(&$sandbox) {
   $schema = array(
-    'description' => 'Table for saving the individual configuration and status for apps.',
+    'description' => 'Table for saving log events for individual apps.',
     'fields' => array(
       'lid' => array(
         'description' => 'The primary identifier for a log record.',
@@ -320,6 +414,98 @@ function science_apps_workspace_update_7001(&$sandbox) {
   );
   db_create_table('science_apps_workspace_app_log', $schema);
   return 'Added science_apps_workspace_app_log table.';
+}
+
+
+
+/**
+ * Adds science_apps_workspace_app_publication_request table for managing
+ * publication requests for apps
+ */
+function science_apps_workspace_update_7002(&$sandbox) {
+  $schema = array(
+    'description' => 'Table for managing publication requests for apps.',
+    'fields' => array(
+      'rid' => array(
+        'description' => 'The primary identifier for a publication request.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'The science_app {node} this record relates to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The {users}.uid of the user who created the request.',
+      ),
+      'description' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'User description of app',
+      ),
+      'data_sources' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'User-provided data sourcing/provenance information',
+      ),
+      'technical_contact_name' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => 'Technical contact for app name',
+      ),
+      'technical_contact_mail' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => 'Technical contact for app email',
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Status of the publication request',
+      ),
+      'publication_notes' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'Notes from the review team',
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the request was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the request was most recently updated.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+    ),
+    'indexes' => array(
+      'request_nid' => array('nid'),
+    ),
+    'foreign keys' => array(
+      'app_node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+    ),
+    'primary key' => array('rid'),
+  );
+  db_create_table('science_apps_workspace_app_publication_request', $schema);
+  return 'Added science_apps_workspace_app_publication_request table.';
 }
 
 /**

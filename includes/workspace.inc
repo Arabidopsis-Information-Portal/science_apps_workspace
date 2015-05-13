@@ -51,7 +51,8 @@ class Workspace {
         ->fields(array(
           'name' => $this->name,
           'config' => $this->config,
-          'status' => $this->status
+          'status' => $this->status,
+          'changed' => REQUEST_TIME
         ))
         ->condition('wid', $this->wid)
         ->execute();
@@ -62,7 +63,9 @@ class Workspace {
           'uid' => $this->uid,
           'name' => $this->name,
           'config' => $this->config,
-          'status' => $this->status
+          'status' => $this->status,
+          'created' => REQUEST_TIME,
+          'changed' => REQUEST_TIME
         ))
         ->execute();
       $this->wid = $wid;

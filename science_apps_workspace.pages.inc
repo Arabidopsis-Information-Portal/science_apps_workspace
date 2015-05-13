@@ -249,3 +249,68 @@ function science_apps_workspace_catalog() {
     'children' => $previews,
   );
 }
+
+function science_apps_workspace_science_app_publish($node) {
+  $output = array();
+  if ($node->science_app_config->published == SCIENCE_APP_PUBLISHED_YES) {
+    $output[] = array(
+      '#markup' => '<h2>This application is published.</h2><p>This application has already been published and is available to all Araport users.</p>',
+      '#prefix' => '<div class="jumbotron">',
+      '#suffix' => '</div>',
+    );
+  } else if ($node->science_app_config->published == SCIENCE_APP_PUBLISHED_REQUESTED) {
+    $publication_request = db_select('science_apps_workspace_app_publication_request', 'pr')
+                    ->fields('pr')
+                    ->condition('nid', $node->nid)
+                    ->execute()
+                    ->fetch();
+    $output[] = array(
+      '#prefix' => '<div class="jumbotron">',
+      '#suffix' => '</div>',
+      'children' => array(
+        array(
+          '#markup' => t('Publication pending.'),
+          '#prefix' => '<h2>',
+          '#suffix' => '</h2>',
+        ),
+        array(
+          '#markup' => t('Publication for this application was requested on @created, and is pending review from the Araport team.', array('@created' => strftime('%b %e, %Y', $publication_request->created))),
+          '#prefix' => '<p>',
+          '#suffix' => '</p>',
+        ),
+      ),
+    );
+  } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
+    $output[] = array(
+      '#markup'=> t('Request to Publish Application'),
+      '#prefix' => '<h2>',
+      '#suffix' => '</h2>',
+    );
+    $output[] = array(
+      '#markup' => t('If you are ready to publish this app, complete the form below. A member of the Araport team will contact you with further details about publishing your app.'),
+      '#prefix' => '<p>',
+      '#suffix' => '</p>',
+    );
+
+    module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
+    $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node);
+  }
+  return $output;
+}
+
+function science_apps_workspace_science_app_publish_admin() {
+  $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+  $publication_requests = $query->fields('pr')
+                                ->execute()
+                                ->fetchAllAssoc('nid');
+
+  $apps = node_load_multiple(array_keys($publication_requests));
+  return array(
+    array(
+      '#markup' => '<pre>'.print_r($publication_requests,1).'</pre>'
+    ),
+    array(
+      '#markup' => '<pre>'.print_r($apps,1).'</pre>'
+    ),
+  );
+}

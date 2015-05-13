@@ -268,3 +268,112 @@ function science_apps_workspace_admin_default_workspace_submit(&$form, &$form_st
   variable_set('science_apps_workspace_default_config', json_encode($config));
   drupal_set_message(t('The Default Workspace Configuration has been saved!'));
 }
+
+function science_apps_workspace_science_app_publish_form($form, &$form_state, $app) {
+  $form = array();
+  global $user;
+
+  $form['nid'] = array(
+    '#type' => 'hidden',
+    '#title' => t('App NID'),
+    '#value' => $app->nid,
+  );
+
+  $form['uid'] = array(
+    '#type' => 'hidden',
+    '#title' => t('Requestor UID'),
+    '#value' => $user->uid,
+  );
+
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Application description'),
+    '#description' => t('Please provide a brief description of your app, what it does, and how to use it.'),
+    '#required' => TRUE,
+  );
+
+  $form['data_sources'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Data source(s)'),
+    '#description' => t('Please list the data source(s) for your app, e.g., Araport Community Data APIs, user-provided data input, or third-party data APIs.'),
+    '#required' => TRUE,
+  );
+
+  $author = user_load($app->uid);
+  if (module_exists('profile2')) {
+    $profiles = profile2_load_by_user($author->uid);
+    $name = implode(' ', array(
+      $profiles['profile']->field_first_name['und'][0]['value'],
+      $profiles['profile']->field_last_name['und'][0]['value'],
+    ));
+  } else {
+    $name = $author->name;
+  }
+
+  $form['technical_contact_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Technical Contact'),
+    '#description' => t('The person to contact with questions about this application.'),
+    '#required' => TRUE,
+    '#default_value' => $name,
+  );
+
+  $form['technical_contact_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Technical Contact Email Address'),
+    '#required' => TRUE,
+    '#default_value' => $author->mail,
+  );
+
+  $form['actions'] = array(
+    '#type' => 'actions',
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit Publication Request'),
+    ),
+    'cancel' => array(
+      '#markup' => l(t('Cancel'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))),
+    )
+  );
+
+  return $form;
+}
+
+function science_apps_workspace_science_app_publish_form_submit(&$form, &$form_state) {
+  $nid = $form_state['values']['nid'];
+  $uid = $form_state['values']['uid'];
+  $description = $form_state['values']['description'];
+  $data_sources = $form_state['values']['data_sources'];
+  $technical_contact_name = $form_state['values']['technical_contact_name'];
+  $technical_contact_mail = $form_state['values']['technical_contact_mail'];
+
+  /* save publication request to database */
+  watchdog('science_apps_workspace',
+    'Accepting app publication request {"nid": @nid, "uid": @uid, "description": "@description", "data_sources": "@data_sources", "technical_contact_name": "@technical_contact_name", "technical_contact_mail": "@technical_contact_mail"}',
+    array('@nid' => $nid, '@uid' => $uid, '@description' => $description, '@data_sources' => $data_sources, '@technical_contact_name' => $technical_contact_name, '@technical_contact_mail' => $technical_contact_mail)
+  );
+  $result = db_insert('science_apps_workspace_app_publication_request')
+            ->fields(array(
+              'nid' => $nid,
+              'uid' => $uid,
+              'description' => $description,
+              'data_sources' => $data_sources,
+              'technical_contact_name' => $technical_contact_name,
+              'technical_contact_mail' => $technical_contact_mail,
+              'created' => REQUEST_TIME,
+              'changed' => REQUEST_TIME
+            ))
+            ->execute();
+
+  /* send email to "apps_administrators" */
+  // TODO
+  watchdog('science_apps_workspace', 'App publication request rid=@rid created.', array('@rid' => $result));
+
+  /* update app config to indicate publication requested */
+  $result = db_update('science_apps_workspace_app_config')
+    ->fields(array('published' => SCIENCE_APP_PUBLISHED_REQUESTED))
+    ->condition('nid', $nid)
+    ->execute();
+
+  drupal_set_message(t('Your publication request has been received! The Apps Review team will be in touch to update you on the publication status.'));
+}

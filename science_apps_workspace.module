@@ -4,6 +4,10 @@ define('SCIENCE_APP_STATE_NOT_READY', 0);
 define('SCIENCE_APP_STATE_READY', 1);
 define('SCIENCE_APP_STATE_ERROR', 2);
 
+define('SCIENCE_APP_PUBLISHED_NO', 0);
+define('SCIENCE_APP_PUBLISHED_YES', 1);
+define('SCIENCE_APP_PUBLISHED_REQUESTED', 2);
+
 /**
  * Implements hook_menu().
  */
@@ -33,7 +37,7 @@ function science_apps_workspace_menu(){
     'description' => t('Information about this science app'),
     'page callback' => 'science_apps_workspace_science_app_info',
     'page arguments' => array(1),
-    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access callback' => 'science_apps_workspace_science_app_action_access',
     'access arguments' => array('update', 1),
     'type' => MENU_LOCAL_TASK,
     'file' => 'science_apps_workspace.pages.inc',
@@ -44,17 +48,19 @@ function science_apps_workspace_menu(){
     'description' => t('Information about this science app'),
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'file' => 'science_apps_workspace.pages.inc',
+    'weight' => 0,
   );
 
   $items['node/%node/science-app/logs'] = array(
-    'title' => t('Update Logs'),
+    'title' => t('Logs'),
     'description' => t('Log data generated while processing this science app'),
     'page callback' => 'science_apps_workspace_science_app_info_logs',
     'page arguments' => array(1),
-    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access callback' => 'science_apps_workspace_science_app_action_access',
     'access arguments' => array('update', 1),
     'type' => MENU_LOCAL_TASK,
     'file' => 'science_apps_workspace.pages.inc',
+    'weight' => 5,
   );
 
   $items['node/%node/science-app/logs/clear'] = array(
@@ -62,10 +68,22 @@ function science_apps_workspace_menu(){
     'description' => t('Clear Log data generated while processing this science app'),
     'page callback' => 'science_apps_workspace_science_app_info_logs_clear',
     'page arguments' => array(1),
-    'access callback' => 'science_apps_workspace_science_app_info_access',
+    'access callback' => 'science_apps_workspace_science_app_action_access',
     'access arguments' => array('update', 1),
     'type' => MENU_CALLBACK,
     'file' => 'science_apps_workspace.pages.inc',
+  );
+
+  $items['node/%node/science-app/publish'] = array(
+    'title' => t('Publish'),
+    'description' => t('Make an app publicly available to all Araport Users'),
+    'page callback' => 'science_apps_workspace_science_app_publish',
+    'page arguments' => array(1),
+    'access callback' => 'science_apps_workspace_science_app_action_access',
+    'access arguments' => array('update', 1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'science_apps_workspace.pages.inc',
+    'weight' => 10,
   );
 
   $items['user/%user/science-apps'] = array(
@@ -147,6 +165,15 @@ function science_apps_workspace_menu(){
     'access arguments' => array('admin science apps')
   );
 
+  $items['admin/config/araport/publication-requests'] = array(
+    'title' => 'Review App Publication Requests',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'file' => 'science_apps_workspace.pages.inc',
+    'access arguments' => array('admin science apps')
+  );
+
   return $items;
 }
 
@@ -204,11 +231,11 @@ function science_apps_workspace_block_view($delta = '') {
     $query = new EntityFieldQuery();
     $range = variable_get('apps_catalog_latest_apps_block_count', 2);
     $apps = $query->entityCondition('entity_type', 'node')
-                      ->entityCondition('bundle', 'science_app')
-                      ->propertyCondition('status', NODE_PUBLISHED)
-                      ->propertyOrderBy('changed', 'DESC')
-                      ->range(0, $range)
-                      ->execute();
+                  ->entityCondition('bundle', 'science_app')
+                  ->propertyCondition('status', NODE_PUBLISHED)
+                  ->propertyOrderBy('changed', 'DESC')
+                  ->range(0, $range)
+                  ->execute();
     $apps = node_load_multiple(array_keys($apps['node']));
     $previews = array();
 
@@ -297,14 +324,12 @@ function science_apps_workspace_node_access($node, $op, $account) {
 
 /**
  * Wrapper around `node_access` that only returns true for science apps. Used
- * as a access permission for the "App Info" node local task to prevent the tab
+ * as a access permission for the "App Info" node local tasks to prevent the tab
  * from being added to non-science_app nodes.
  *
  * @see node_access
- * @see science_apps_workspace_menu
- * @see science_apps_workspace_science_app_info
  */
-function science_apps_workspace_science_app_info_access($op, $node) {
+function science_apps_workspace_science_app_action_access($op, $node) {
   if ($node->type == 'science_app') {
     return node_access($op, $node);
   }
@@ -330,6 +355,18 @@ function science_apps_workspace_node_info() {
       'locked' => TRUE,
     ),
   );
+}
+
+function science_app_load($nodes) {
+  $config = db_select('science_apps_workspace_app_config', 'conf')
+            ->fields('conf')
+            ->condition('nid', array_keys($nodes), 'IN')
+            ->execute()
+            ->fetchAllAssoc('nid');
+
+  foreach ($config as $nid => $conf) {
+    $nodes[$nid]->science_app_config = $conf;
+  }
 }
 
 /**
@@ -513,21 +550,22 @@ function science_apps_workspace_apps_catalog($uid = 0) {
 }
 
 function science_apps_workspace_get_public_apps() {
-  $nids = db_select('science_apps_workspace_app_config', 'conf')
-    ->fields('conf', array('nid'))
-    ->condition('conf.published', 1)
-    ->execute()->fetchCol();
+  $query = db_select('node', 'n')
+              ->fields('n', array('nid'))
+              ->condition('n.type', 'science_app', '=')
+              ->condition('n.status', NODE_PUBLISHED);
+  $nids = $query->execute()->fetchCol();
   return node_load_multiple($nids);
 }
 
 function science_apps_workspace_get_user_apps($uid, $ready_only = TRUE) {
-  $query = db_select('node', 'n');
-  $query->join('science_apps_workspace_app_config', 'config', 'config.nid = n.nid');
-  $query->fields('n', array('nid'))
-    ->condition('n.type', 'science_app', '=')
-    ->condition('n.uid', $uid, '=');
+  $query = db_select('node', 'n')
+              ->fields('n', array('nid'))
+              ->condition('n.type', 'science_app', '=')
+              ->condition('n.uid', $uid, '=');
 
   if ($ready_only) {
+    $query->join('science_apps_workspace_app_config', 'config', 'config.nid = n.nid');
     $query->condition('config.ready', 1, '=');
   }
 
@@ -586,11 +624,6 @@ function science_apps_workspace_user_apps($account) {
     'rows' => $rows
   ));
 }
-
-// function science_apps_workspace_prepare_app($node) {
-//   _science_apps_workspace_prepare_app($node->nid);
-//   drupal_goto('node/'.$node->nid);
-// }
 
 function _science_apps_workspace_prepare_app($nid) {
    watchdog('science_apps_workspace', 'Preparing app nid=@nid', array('@nid'=>$nid));
@@ -675,20 +708,22 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
   $app_dir = _science_apps_workspace_apps_repo($app_nid);
   if (is_file($app_dir . DIRECTORY_SEPARATOR . 'bower.json')) {
     $bower = json_decode(file_get_contents($app_dir . DIRECTORY_SEPARATOR . 'bower.json'));
-    $semver_regex = '/^[<>=~v]?(\d+\.\d+)(.*)?$/'; // permissive semver
-    foreach($bower->dependencies as $lib => $version) {
+    if (isset($bower->dependencies)) {
+      $semver_regex = '/^[<>=~v]?(\d+\.\d+)(.*)?$/'; // permissive semver
+      foreach($bower->dependencies as $lib => $version) {
 
-      $lib_str = strtolower($lib);
-      $version_str = strtolower($version);
-      $name = preg_replace('/[^[:alnum:].]+/', '_', $lib_str.'_'.$version_str);
-      // hopefully the version is semver
-      if (preg_match($semver_regex, $version_str) || $version_str == '*') {
-        $value = "$lib#$version";
-      } else {
-        // do our best
-        $value = $version;
+        $lib_str = strtolower($lib);
+        $version_str = strtolower($version);
+        $name = preg_replace('/[^[:alnum:].]+/', '_', $lib_str.'_'.$version_str);
+        // hopefully the version is semver
+        if (preg_match($semver_regex, $version_str) || $version_str == '*') {
+          $value = "$lib#$version";
+        } else {
+          // do our best
+          $value = $version;
+        }
+        $deps[$name] = $value;
       }
-      $deps[$name] = $value;
     }
   }
   return $deps;
@@ -861,12 +896,7 @@ function theme_science_app_display($vars) {
     if (_science_apps_workspace_app_dependencies_ready($node->nid)) {
       $prep_steps[1]['status'] = 1;
 
-      $app = db_select('science_apps_workspace_app_config', 'app')
-        ->fields('app')
-        ->condition('app.nid', $node->nid)
-        ->execute()->fetch();
-
-      if ($app->ready) {
+      if ($node->science_app_config->ready) {
         $prep_steps[2]['status'] = 1;
 
         // load app dependencies
