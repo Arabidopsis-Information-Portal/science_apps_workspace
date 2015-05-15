@@ -170,7 +170,17 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
-    'file' => 'science_apps_workspace.pages.inc',
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps')
+  );
+
+  $items['admin/config/araport/publication-requests/%'] = array(
+    'title' => 'Review App Publication Request',
+    'description' => 'Review App Publication Request',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin_review',
+    'page arguments' => array(4),
+    'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps')
   );
 
@@ -386,7 +396,9 @@ function science_app_insert($node) {
  * Update the record in `science_apps_workspace_app_config` for this node.
  */
 function science_app_update($node) {
-  science_apps_workspace_set_app_config_ready($node->nid, SCIENCE_APP_STATE_NOT_READY);
+  if (! property_exists($node->science_app_config, 'no_update')) {
+    science_apps_workspace_set_app_config_ready($node->nid, SCIENCE_APP_STATE_NOT_READY);
+  }
 }
 
 function science_apps_workspace_set_app_config_ready($nid, $ready = SCIENCE_APP_STATE_NOT_READY) {
@@ -605,20 +617,31 @@ function science_apps_workspace_user_apps_title($account) {
   }
 }
 
+function _science_apps_workspace_app_info_tr($app) {
+  $status = '<i class="fa fa-square-o"></i> ' . t('No');
+  if ($app->status) {
+    $status = '<i class="fa fa-check-square-o"></i> '. t('Yes');
+  } else if ($app->science_app_config->published == SCIENCE_APP_PUBLISHED_REQUESTED) {
+    $status = '<i class="fa fa-clock-o"></i> '. t('Requested');
+  }
+  return array(
+    l($app->title, "node/$app->nid"),
+    l($app->science_app_repository['und'][0]['value'], $app->science_app_repository['und'][0]['value']),
+    $app->science_app_version ? $app->science_app_version['und'][0]['value'] : 'master',
+    $status,
+    date('d-M-Y', $app->changed),
+  );
+}
+
 function science_apps_workspace_user_apps($account) {
   global $user;
   $ready_only = $user->uid != $account->uid;
   $apps = science_apps_workspace_get_user_apps($account->uid, $ready_only);
   $rows = array();
   foreach ($apps as $app) {
-    $rows[] = array(
-      l($app->title, "node/$app->nid"),
-      l($app->science_app_repository['und'][0]['value'], $app->science_app_repository['und'][0]['value']),
-      $app->science_app_version ? $app->science_app_version['und'][0]['value'] : 'master',
-      $app->status ? t('Yes') : t('No'),
-      date('d-M-Y', $app->changed),
-    );
+    $rows[] = _science_apps_workspace_app_info_tr($app);
   }
+
   return theme('table', array(
     'header' => array(t('App Name'), t('Repository'), t('Version'), t('Public'), t('Last Updated')),
     'rows' => $rows
@@ -872,6 +895,19 @@ function science_apps_workspace_theme() {
     'science_app_placeholder' => array(
       'variables' => array('anonymous' => TRUE),
       'template' => 'app_placeholder',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request' => array(
+      'variables' => array(
+        'description' => '',
+        'data_sources' => '',
+        'tech_contact' => '',
+        'app_link' => '',
+        'node' => null,
+        'request_data' => null,
+      ),
+      'template' => 'publication_request',
       'path' => $template_path,
     ),
   );

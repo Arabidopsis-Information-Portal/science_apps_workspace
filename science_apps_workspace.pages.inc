@@ -186,11 +186,25 @@ function science_apps_workspace_config($wid = null) {
 }
 
 function science_apps_workspace_science_app_info($node) {
-  $author = user_load($node->uid);
-  $repo = $node->science_app_repository['und'][0]['value'];
-  $version = $node->science_app_version ? $node->science_app_version['und'][0]['value'] : 'master';
-  $published = $node->status;
-  return theme('science_app_information', compact('node', 'author', 'repo', 'version', 'published'));
+  return array(
+    array(
+      '#markup' => t('Science App Information'),
+      '#prefix' => '<h2>',
+      '#suffix' => '</h2>',
+    ),
+    array(
+      '#markup' => t('Metadata for !title', array('!title' => "<b>{$node->title}</b>")),
+      '#prefix' => '<p class="lead">',
+      '#suffix' => '</p>',
+    ),
+    array(
+      '#theme' => 'table',
+      '#prefix' => '<div class="table-responsive">',
+      '#suffix' => '</div>',
+      '#header' => array(t('App Name'), t('Repository'), t('Version'), t('Public'), t('Last Updated')),
+      '#rows' => array(_science_apps_workspace_app_info_tr($node),),
+    )
+  );
 }
 
 function science_apps_workspace_science_app_info_logs($node) {
@@ -296,21 +310,4 @@ function science_apps_workspace_science_app_publish($node) {
     $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node);
   }
   return $output;
-}
-
-function science_apps_workspace_science_app_publish_admin() {
-  $query = db_select('science_apps_workspace_app_publication_request', 'pr');
-  $publication_requests = $query->fields('pr')
-                                ->execute()
-                                ->fetchAllAssoc('nid');
-
-  $apps = node_load_multiple(array_keys($publication_requests));
-  return array(
-    array(
-      '#markup' => '<pre>'.print_r($publication_requests,1).'</pre>'
-    ),
-    array(
-      '#markup' => '<pre>'.print_r($apps,1).'</pre>'
-    ),
-  );
 }
