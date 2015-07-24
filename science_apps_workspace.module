@@ -43,6 +43,16 @@ function science_apps_workspace_menu(){
     'file' => 'science_apps_workspace.pages.inc',
   );
 
+  $items['app-embed/%node'] = array(
+    'title' => t('App Embed'),
+    'description' => t('Embedded Science App'),
+    'page callback' => 'science_app_embed',
+    'page arguments' => array(1),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 1),
+    'type' => MENU_CALLBACK,
+  );
+
   $items['node/%node/science-app/info'] = array(
     'title' => t('App Info'),
     'description' => t('Information about this science app'),
@@ -420,12 +430,23 @@ function science_app_delete($node) {
 
 function science_app_view($node, $view_mode) {
 
-  $node->content['app'] = array(
-    '#markup' => theme('science_app_display', array('node' => $node)),
-    '#weight' => 10,
-  );
+  if ($view_mode == 'full' || $view_mode == 'embed') {
+    $node->content['app'] = array(
+      '#markup' => '<iframe src="'.url("app-embed/{$node->nid}").'" class="araport-app-frame" style="border:0;width:100%"></iframe>',
+      '#weight' => 10,
+    );
+    drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
+    drupal_add_js('(function(window, $, undefined) { $(".araport-app-frame").iFrameResize(); })(window, jQuery);', array('type' => 'inline', 'scope' => 'footer', 'cache' => FALSE, 'weight' => 10000));
+  }
 
   return $node;
+}
+
+function science_app_embed($node) {
+  module_invoke('admin_menu', 'suppress');
+  drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
+  drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.contentWindow.js', array('scope' => 'footer'));
+  return theme('science_app_display', array('node' => $node));
 }
 
 function science_apps_workspace_node_type_insert($content_type) {

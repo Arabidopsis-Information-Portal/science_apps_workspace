@@ -79,7 +79,8 @@ function science_apps_workspace_render_app($app) {
   if ($app) {
     $app_node = node_load($app);
     if ($app_node) {
-      $output .= theme('science_app_display', array('node' => $app_node));
+      $build = science_app_view($app_node, 'embed');
+      $output .= drupal_render($build->content['app']);
     } else {
       $output .= theme('science_app_removed', array('node' => $app_node));
     }
