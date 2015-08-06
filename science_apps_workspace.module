@@ -451,7 +451,8 @@ function science_app_embed($node) {
     $asset = implode('/', array_slice($arguments,2));
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
     drupal_add_http_header('Content-type', 'text/javascript');
-    return file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $asset)));
+    print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $asset)));
+    drupal_exit();
   } else {
     drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
     drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.contentWindow.js', array('scope' => 'footer'));
