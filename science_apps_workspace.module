@@ -444,13 +444,18 @@ function science_app_view($node, $view_mode) {
 
 function science_app_embed($node) {
   module_invoke('admin_menu', 'suppress');
-
   $arguments = arg();
-
+  foreach ( $arguments as $k => $v){
+      if ($v == '..'){
+          unset($arguments[$k]);
+      }
+  }
   if (count($arguments) > 2) {
     $asset = implode('/', array_slice($arguments,2));
+    error_log($asset, 0);
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
-    drupal_add_http_header('Content-type', 'text/javascript');
+    $mtype = file_get_mimetype($asset);
+    drupal_add_http_header('Content-type', $mtype);
     print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $asset)));
     drupal_exit();
   } else {
