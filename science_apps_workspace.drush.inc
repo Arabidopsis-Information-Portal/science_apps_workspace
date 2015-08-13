@@ -33,7 +33,8 @@ function drush_science_apps_workspace_check_ready_state() {
 
   while ($r = $records->fetchAssoc()) {
     $nid = $r['nid'];
-    if (_science_apps_workspace_app_repo_ready($nid) && _science_apps_workspace_app_dependencies_ready($nid)) {
+    //if (_science_apps_workspace_app_repo_ready($nid) && _science_apps_workspace_app_dependencies_ready($nid)) {
+    if (_science_apps_workspace_app_repo_ready($nid) && _science_apps_workspace_app_check_dependencies_ready($nid)) {
       print "App nid=$nid READY\n";
       science_apps_workspace_set_app_config_ready($nid, SCIENCE_APP_STATE_READY);
     } else {

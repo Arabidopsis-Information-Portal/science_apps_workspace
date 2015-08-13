@@ -452,7 +452,6 @@ function science_app_embed($node) {
   }
   if (count($arguments) > 2) {
     $asset = implode('/', array_slice($arguments,2));
-    error_log($asset, 0);
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
@@ -693,12 +692,7 @@ function _science_apps_workspace_prepare_app($nid) {
    $dependencies = FALSE;
 
    $checkout = _science_apps_workspace_app_repo_checkout($nid);
-
-   if (_science_apps_workspace_app_dependencies_ready($nid)) {
-     $dependencies = TRUE;
-   } else {
-     $dependencies = _science_apps_workspace_app_dependencies_process($nid);
-   }
+   $dependencies = _science_apps_workspace_app_dependencies_process_local($nid);
    if ($checkout && $dependencies) {
      // update app config record
      watchdog('science_apps_workspace', 'Successfully prepared app nid=@nid', array('@nid'=>$nid));
@@ -775,7 +769,7 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
 
         $lib_str = strtolower($lib);
         $version_str = strtolower($version);
-        $name = preg_replace('/[^[:alnum:].]+/', '_', $lib_str.'_'.$version_str);
+        $name = preg_replace('/[^[:alnum:].-]+/', '_', $lib_str.'-'.$version_str);
         // hopefully the version is semver
         if (preg_match($semver_regex, $version_str) || $version_str == '*') {
           $value = "$lib#$version";
@@ -783,13 +777,71 @@ function _science_apps_workspace_app_dependencies_list($app_nid) {
           // do our best
           $value = $version;
         }
-        $deps[$name] = $value;
+        $deps[$lib] = array( 'lpath' => $name,
+                              'version' => $value);
       }
     }
   }
   return $deps;
 }
 
+function _science_apps_workspace_app_check_dependencies_ready($app_nid) {
+  $ready = TRUE;
+  $deps = _science_apps_workspace_app_dependencies_list($app_nid);
+  if (count($deps) > 0) {
+    foreach ($deps as $lib => $det) {
+      $dep_path = _science_apps_workspace_apps_repo($app_nid) . DIRECTORY_SEPARATOR . 'bower_components' . DIRECTORY_SEPARATOR . $lib . DIRECTORY_SEPARATOR;
+      if (is_dir($dep_path)) {
+        if (is_file($dep_path . 'bower.json')) {
+          $bower_path = $dep_path . 'bower.json';
+        }
+        // check for old component.json file
+        else if (is_file($dep_path . 'component.json')) {
+          $bower_path = $dep_path . 'component.json';
+        }
+        else {
+         $bower_path = FALSE;
+        }
+
+        if ($bower_path) {
+          $bower = json_decode(file_get_contents($bower_path));
+          if ($bower->main) {
+            // package exists, files declared, check that none missing
+            if (is_array($bower->main)) {
+              // check each dependency
+              foreach ($bower->main as $main) {
+                if (! is_file($dep_path . $main)) {
+                  watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $main), WATCHDOG_WARNING);
+                }
+              }
+            } else if (! is_file($dep_path . $bower->main)) {
+              watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_WARNING);
+            }
+          } else {
+            $ready = FALSE;
+            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib)), 'error');
+            watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+          }
+        } else {
+          $ready = FALSE;
+          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib)), 'error');
+          watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
+        }
+      } else {
+        watchdog('science_app_workspace', 'SciApp (nid=@nid) dependency path is not a path: %path', array('@nid' => $app_nid, '%path' => $dep_path), WATCHDOG_INFO);
+        $ready = FALSE;
+        break;
+        watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) has not been prepared yet.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_INFO);
+      }
+    }
+  }
+  return $ready;
+}
+
+/*
+    Deprecated for _science_apps_workspace_app_check_dependencies_ready($app_nid)
+    We stopped installing dependencis in global folder.
+*/
 function _science_apps_workspace_app_dependencies_ready($app_nid) {
   $ready = TRUE;
   $deps = _science_apps_workspace_app_dependencies_list($app_nid);
@@ -805,7 +857,7 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
           $bower_path = $dep_path . 'component.json';
         }
         else {
-          $bower_path = FALSE;
+         $bower_path = FALSE;
         }
 
         if ($bower_path) {
@@ -841,8 +893,32 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
   return $ready;
 }
 
+function _science_apps_workspace_app_dependencies_process_local($app_nid) {
+  $dependencies_dir = _science_apps_workspace_apps_repo($app_nid);
+  if(is_dir($dependencies_dir) && is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json')){
+    $cmd = escapeshellcmd('cd ' . drupal_realpath($dependencies_dir));
+    $cmd .= '; bower install;';
+    $out = exec($cmd, $bower_log, $return_var);
+    if ($return_var != 0) {
+      watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid failed:'."\n".'@errors', array('@nid' => $app_nid,'@errors' => $out.$return_var.implode("\n", $bower_log)), WATCHDOG_ERROR);
+    } else {
+      watchdog('science_apps_workspace', 'Processed dependencies for SciApp nid=@nid successfully.'."\n".'@output', array('@nid' => $app_nid,'@output' => implode("\n", $bower_log)), WATCHDOG_INFO);
+      return TRUE;
+    }
+  }
+  else {
+    watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid failed: bower.json file does not exists in @path', array('@nid' => $app_nid,'@path' => $dependencies_dir), WATCHDOG_ERROR);
+  }
+  return FALSE;
+}
+
+/*
+    Deprecated for _science_apps_workspace_app_dependencies_process_local
+    Dependencies now processed locally.
+*/
 function _science_apps_workspace_app_dependencies_process($app_nid) {
   $dependencies_dir = _science_apps_dependency_path();
+  watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid dependencies_dir=@deps', array('@nid' => $app_nid, '@deps' => $dependencies_dir), WATCHDOG_INFO);
   if (file_prepare_directory($dependencies_dir, FILE_CREATE_DIRECTORY)) {
     $bower_arguments = array();
     $deps = _science_apps_workspace_app_dependencies_list($app_nid);
