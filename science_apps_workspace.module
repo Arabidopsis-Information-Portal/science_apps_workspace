@@ -455,7 +455,15 @@ function science_app_embed($node) {
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
-    print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, $asset)));
+    if ( $mtype == 'application/javascript' || 
+         $mtype == 'application/x-javascript' ||
+         $mtype == 'text/css' || 
+         $mtype == 'text/plain' ||
+         $mtype == 'text/html'){
+        print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, $asset)));
+    } else {
+        readfile(implode(DIRECTORY_SEPARATOR, array($app_dir, $asset)));
+    }
     drupal_exit();
   } else {
     drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
@@ -895,7 +903,10 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
 
 function _science_apps_workspace_app_dependencies_process_local($app_nid) {
   $dependencies_dir = _science_apps_workspace_apps_repo($app_nid);
-  if(is_dir($dependencies_dir) && is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json')){
+  if(is_dir($dependencies_dir) && 
+      (is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json') || 
+       is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'component.json'))
+    ){
     $cmd = escapeshellcmd('cd ' . drupal_realpath($dependencies_dir));
     $cmd .= '; bower install;';
     $out = exec($cmd, $bower_log, $return_var);
@@ -1053,19 +1064,46 @@ function theme_science_app_display($vars) {
         //if (science_apps_workspace_load_libraries(_science_apps_workspace_app_dependencies_list($node->nid))) {
         if (science_apps_workspace_load_local_libraries(_science_apps_workspace_app_dependencies_list($node->nid), _science_apps_workspace_apps_repo($node->nid), $node->nid)) {
           $app_ready = TRUE;
-        }
-      }
+        } }
     }
   }
 
   if ($app_ready) {
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
+    if(is_file($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json')){
+        $app_config = json_decode(file_get_contents($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json'));
+        $app_html_uri = $app_config->html;
+        $app_scripts = $app_config->scripts;
+        if(!is_array($app_scripts)){
+            watchdog('science_apps_workspace', 'Scripts is not an array in app.json', null, WATCHDOG_ERROR);
+            $app_scripts = array();
+        }
+        $app_styles = $app_config->styles;
+        if(!is_array($app_styles)){
+            watchdog('science_apps_workspace', 'Styles is not an array in app.json', null, WATCHDOG_ERROR);
+            $app_styles = array();
+        }
+    }
+    else {
+        $app_html_uri = 'app.html';
+        $app_scripts = array('app.js');
+        $app_styles = array('app.css');
+    }
     // add app.css
-    drupal_add_css(file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', 'styles', 'app.css'))), array('type' => 'inline', 'scope' => 'header', 'group' => 200));
+    foreach($app_styles as $style){
+        drupal_add_css($app_dir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'styles' . DIRECTORY_SEPARATOR . $style, 'file');
+    }
+    foreach($app_scripts as $script){
+        drupal_add_js('app-embed/' . $node->nid . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . $script, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
+    }
     // add app.js
-    drupal_add_js(file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', 'scripts', 'app.js'))), array('type' => 'inline', 'scope' => 'footer'));
+
     // return app.html
-    return file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', 'app.html')));
+    $app_html = file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $app_html_uri)));
+
+    $app_html = preg_replace("/(href|src)\s*=\"(?!\/\/)([^\s:]+)\"/", 
+                             '${1}="/app-embed/' . $node->nid . '/${2}"', $app_html);
+    return $app_html;
   } else {
     drupal_set_message('This application is still being prepared. Please be patient.', 'warning');
     $output = '<div class="science-app-pending">';
@@ -1086,7 +1124,6 @@ function theme_science_app_display($vars) {
 
 function science_apps_workspace_load_local_libraries($libraries, $app_path, $nid) {
   $loaded = TRUE;
-
   $base_path = $app_path . DIRECTORY_SEPARATOR . 'bower_components';
   foreach ($libraries as $library => $det) {
     $lib_path = $base_path . DIRECTORY_SEPARATOR . $library . DIRECTORY_SEPARATOR;
