@@ -455,7 +455,7 @@ function science_app_embed($node) {
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
-    print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $asset)));
+    print file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, $asset)));
     drupal_exit();
   } else {
     drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
@@ -1043,14 +1043,15 @@ function theme_science_app_display($vars) {
     $prep_steps[0]['status'] = 1;
 
     // check that app dependencies are ready
-    if (_science_apps_workspace_app_dependencies_ready($node->nid)) {
+    if (_science_apps_workspace_app_check_dependencies_ready($node->nid)) {
       $prep_steps[1]['status'] = 1;
 
       if ($node->science_app_config->ready) {
         $prep_steps[2]['status'] = 1;
 
         // load app dependencies
-        if (science_apps_workspace_load_libraries(_science_apps_workspace_app_dependencies_list($node->nid))) {
+        //if (science_apps_workspace_load_libraries(_science_apps_workspace_app_dependencies_list($node->nid))) {
+        if (science_apps_workspace_load_local_libraries(_science_apps_workspace_app_dependencies_list($node->nid), _science_apps_workspace_apps_repo($node->nid), $node->nid)) {
           $app_ready = TRUE;
         }
       }
@@ -1083,10 +1084,45 @@ function theme_science_app_display($vars) {
   }
 }
 
+function science_apps_workspace_load_local_libraries($libraries, $app_path, $nid) {
+  $loaded = TRUE;
+
+  $base_path = $app_path . DIRECTORY_SEPARATOR . 'bower_components';
+  foreach ($libraries as $library => $det) {
+    $lib_path = $base_path . DIRECTORY_SEPARATOR . $library . DIRECTORY_SEPARATOR;
+    $lib_uri = 'app-embed/' . $nid . '/bower_components/' . $library . '/';
+    if (is_file($lib_path . 'bower.json')) {
+      $bower_path = $lib_path . 'bower.json';
+    } else if (is_file($lib_path . 'component.json')) {
+      $bower_path = $lib_path . 'component.json';
+    } else {
+      $bower_path = FALSE;
+    }
+    if ($bower_path) {
+      // load the library bower.json
+      $bower = json_decode(file_get_contents($bower_path));
+
+      // load each file in $bower->main with
+      $main_files = is_array($bower->main) ? $bower->main : array($bower->main);
+      foreach ($main_files as $file) {
+        if (substr($file, -3) === 'css') {
+          drupal_add_css($lib_uri.$file, 'file');
+        } else {
+          drupal_add_js($lib_uri.$file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
+        }
+      }
+    } else {
+      $loaded = FALSE;
+    }
+  }
+  return $loaded;
+}
+
 /**
  * Adds the necessary files for these libraries to the page.
  * @param $libraries
  *    An array of libraries to load from sites/all/libraries/science_apps_workspace/bower_components
+ * Deprecetaed for science_apps_workspace_load_local_libraries
  */
 function science_apps_workspace_load_libraries($libraries) {
   $loaded = TRUE;
