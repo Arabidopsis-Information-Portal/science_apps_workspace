@@ -362,7 +362,7 @@ function science_apps_workspace_workspace_access($workspace) {
 }
 
 /**
- * Implements hook_node_info(). Defines a content type for "Science App".
+ * Implements hmok_node_info(). Defines a content type for "Science App".
  *
  */
 function science_apps_workspace_node_info() {
@@ -405,11 +405,8 @@ function science_app_insert($node) {
  * Implements hook_update();
  * Update the record in `science_apps_workspace_app_config` for this node.
  */
-function science_app_update($node) {
-  if (! property_exists($node->science_app_config, 'no_update')) {
-    science_apps_workspace_set_app_config_ready($node->nid, SCIENCE_APP_STATE_NOT_READY);
-  }
-}
+//function science_app_update($node) {
+//}
 
 function science_apps_workspace_set_app_config_ready($nid, $ready = SCIENCE_APP_STATE_NOT_READY) {
   db_update('science_apps_workspace_app_config')
@@ -474,8 +471,7 @@ function science_app_embed($node) {
 }
 
 function science_apps_workspace_node_type_insert($content_type) {
-  if ($content_type->type == 'science_app') {
-    $body_instance = node_add_body_field($content_type, t('Application Description'));
+  if ($content_type->type == 'science_app') { $body_instance = node_add_body_field($content_type, t('Application Description'));
 
     // Create all the fields we are adding to our content type.
     foreach (_science_app_installed_fields() as $field) {
@@ -497,6 +493,43 @@ function science_apps_workspace_node_type_insert($content_type) {
  */
 function science_app_form($node, $form_state) {
   return node_content_form($node, $form_state);
+}
+/**
+ * Implements hook_form_BASE_FORM_ID_alter(). This is to add the checkbox to hard refresh a Science App node.
+ *
+ */
+function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_state, $form_id){
+    $form['hard_reload'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Force Reload'),
+        '#description' => t('Force re-<code>clone</code> code from git repo and re-resolve javascript dependencies. Use this if there\'s a change in your code but not a change in the version tag.'),
+        '#attributes' => array('style' => 'margin-left:0px'),
+        '#weight' => 4
+    );
+    //$form['#submit'][] = 'science_app_node_form_submit';
+}
+
+function science_app_node_form_submit(&$form, &$form_state){
+    $nid = $form["nid"]["#value"];
+    if(empty($nid) || $nid == ""){
+        return;
+    }
+    $repo = $form["science_app_repository"]["und"][0]["value"]["#value"];
+    $ver = $form["science_app_version"]["und"][0]["value"]["#value"];
+    $reload = $form['hard_reload']['#value'];
+    $app = node_load($form["nid"]["#value"]);
+    if($repo != $app->science_app_repository["und"][0]["value"] || 
+       $ver != $app->science_app_version["und"][0]["value"] ||
+       $reload){
+
+          if (! property_exists($app->science_app_config, 'no_update')) {
+            science_apps_workspace_set_app_config_ready($app->nid, SCIENCE_APP_STATE_NOT_READY);
+          }
+
+    }
+    //error_log("App nid: " . $app->nid);
+    //error_log("App Repo: " . $app->science_app_repository["und"][0]["value"]);
+    //error_log("App Version: " . $app->science_app_version["und"][0]["value"]);
 }
 
 /**
@@ -908,7 +941,7 @@ function _science_apps_workspace_app_dependencies_process_local($app_nid) {
        is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'component.json'))
     ){
     $cmd = escapeshellcmd('cd ' . drupal_realpath($dependencies_dir));
-    $cmd .= '; bower install;';
+    $cmd .= '; bower -f install;';
     $out = exec($cmd, $bower_log, $return_var);
     if ($return_var != 0) {
       watchdog('science_apps_workspace', 'Processing dependencies for SciApp nid=@nid failed:'."\n".'@errors', array('@nid' => $app_nid,'@errors' => $out.$return_var.implode("\n", $bower_log)), WATCHDOG_ERROR);
