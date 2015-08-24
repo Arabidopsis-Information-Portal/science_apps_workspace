@@ -100,6 +100,7 @@ function drush_science_apps_workspace_apps_process() {
   if (count($app_nids)) {
     foreach ($app_nids as $nid) {
       print "Processing Science App nid=$nid...\n";
+    //TODO: make it work in a clean directory because of URL changes.
       _science_apps_workspace_prepare_app($nid);
     }
   } else {
