@@ -423,6 +423,11 @@ function science_app_delete($node) {
   db_delete('science_apps_workspace_app_config')
     ->condition('nid', $node->nid)
     ->execute();
+  $app_path = _science_apps_workspace_apps_repo($node->nid);
+  if(is_dir($app_path)){
+      _science_apps_workspace_app_clean_repo($node->nid);
+      rmdir($app_path);
+  }
 }
 
 function science_app_view($node, $view_mode) {
@@ -514,6 +519,7 @@ function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_
 function science_app_node_form_submit(&$form, &$form_state){
     $nid = $form["nid"]["#value"];
     if(empty($nid) || $nid == ""){
+        watchdog('science_app_repository', 'Creating App title = @title', array('@title' => $form['title']), WATCHDOG_INFO);
         return;
     }
     $repo = $form["science_app_repository"]["und"][0]["value"]["#value"];
@@ -1230,11 +1236,8 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
 }
 
 function _science_apps_workspace_dep_sort($a, $b){
-    //if A depends on B, then move it below in the array.
     if(in_array($a->name, $b->dep)) return 1;
-    // if B depends on A, then move it below in the array.
     if(in_array($b->name, $a->dep)) return -1;
-    // if there's no dependency between them then leave it there.
     return 0;
 }
 
@@ -1275,7 +1278,6 @@ function science_apps_workspace_load_local_libraries($nid) {
     $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $error);
   }
     if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
-
     usort($dep_list, '_science_apps_workspace_dep_sort');
     $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
     $dep_list = array_unique($dep_list);
