@@ -506,20 +506,34 @@ function science_app_form($node, $form_state) {
  *
  */
 function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_state, $form_id){
-    $form['hard_reload'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Force Reload'),
-        '#description' => t('Force re-<code>clone</code> code from git repo and re-resolve javascript dependencies. Use this if there\'s a change in your code but not a change in the version tag.'),
-        '#attributes' => array('style' => 'margin-left:0px'),
-        '#weight' => 4
-    );
+    if(arg(1) != 'add'){
+        $form['hard_reload'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Force Reload'),
+            '#description' => t('Force re-<code>clone</code> code from git repo and re-resolve javascript dependencies. Use this if there\'s a change in your code but not a change in the version tag.'),
+            '#attributes' => array('style' => 'margin-left:0px'),
+            '#weight' => 4
+        );
+    }else {
+        $form['title']['#required'] = False;
+        $form['title']['#description'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
+        $form['body']['und'][0]['#suffix'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
+        print_r($form);
+        //lets hide the Title and Description only if the user is adding a node.
+        //We could also check if there's an 'nid'
+        //$node = $form_state['node']
+        //if(!isset($node->nid) || isset($node->is_new))
+        //
+    }
     //$form['#submit'][] = 'science_app_node_form_submit';
 }
 
 function science_app_node_form_submit(&$form, &$form_state){
     $nid = $form["nid"]["#value"];
     if(empty($nid) || $nid == ""){
-        watchdog('science_app_repository', 'Creating App title = @title', array('@title' => $form['title']), WATCHDOG_INFO);
+        if(!isset($form_state['values']['title']) || $form_state['values']['title'] == ''){
+            $form_state['values']['title'] = 'Science App';
+        }
         return;
     }
     $repo = $form["science_app_repository"]["und"][0]["value"]["#value"];
@@ -731,6 +745,28 @@ function science_apps_workspace_user_apps($account) {
   ));
 }
 
+function _science_apps_update_details($nid){
+    $app_repo = _science_apps_workspace_apps_repo($nid);
+    $app = node_load($nid);
+    print "Checking if apps name is Science App\n";
+    if($app->title != 'Science App') return false;
+    print "Assuming user left details empty, attempting to update details from manifest\n";
+    $manifest_path = $app_repo . DIRECTORY_SEPARATOR . 'araport-app.json';
+    if(!is_file($manifest_path)){
+        print "No manifest :(\n";
+        watchdog('science_apps_workspace', 'App nid=@nid is missing araport-app.json file. Failed to set details', array('@nid'=>$nid), WATCHDOG_WARNING);
+        return false;
+    }
+    $manifest = json_decode(file_get_contents($manifest_path));
+    print "Setting title: " . $manifest->name . "\n";
+    $app->title = $manifest->name;
+    print "Setting description: " . $manifest->description . "\n";
+    $app->body['und'][0]['value'] = $manifest->description;
+    print_r($app);
+    node_save($app);
+    return true;
+}
+
 function _science_apps_workspace_prepare_app($nid) {
    watchdog('science_apps_workspace', 'Preparing app nid=@nid', array('@nid'=>$nid));
 
@@ -739,6 +775,8 @@ function _science_apps_workspace_prepare_app($nid) {
 
    $checkout = _science_apps_workspace_app_repo_checkout($nid);
    $dependencies = _science_apps_workspace_app_dependencies_process_local($nid);
+   //if we fail to set the details doesn't necessarily means that the app has not been correctly initialized.
+   $details_set = _science_apps_update_details($nid);
    if ($checkout && $dependencies) {
      // update app config record
      watchdog('science_apps_workspace', 'Successfully prepared app nid=@nid', array('@nid'=>$nid));
