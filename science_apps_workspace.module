@@ -518,7 +518,6 @@ function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_
         $form['title']['#required'] = False;
         $form['title']['#description'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
         $form['body']['und'][0]['#suffix'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
-        print_r($form);
         //lets hide the Title and Description only if the user is adding a node.
         //We could also check if there's an 'nid'
         //$node = $form_state['node']
