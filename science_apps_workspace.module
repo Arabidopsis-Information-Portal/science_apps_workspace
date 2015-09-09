@@ -1326,7 +1326,7 @@ function science_apps_workspace_load_local_libraries($nid) {
   $dep_list = array_unique($dep_list);
   foreach ($dep_list as $file) {
     if (substr($file, -3) === 'css') {
-      drupal_add_css($file, 'file');
+      drupal_add_css($file, array('type' => 'file', 'preprocess' => FALSE));
     } else{
       drupal_add_js($file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
     }
