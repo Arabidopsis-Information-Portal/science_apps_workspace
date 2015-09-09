@@ -447,7 +447,7 @@ function science_app_view($node, $view_mode) {
 function science_app_embed($node) {
   module_invoke('admin_menu', 'suppress');
   $arguments = arg();
-  //TODO:Resolve relative and check for being under the correct app drupal_realpath() and check with private app repository  * FIXED
+  //DONE: Resolve relative and check for being under the correct app drupal_realpath() and check with private app repository  * FIXED
   if (count($arguments) > 2) {
     $asset = implode('/', array_slice($arguments,2));
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
@@ -1220,7 +1220,7 @@ function theme_science_app_display($vars) {
   }
 }
 
-function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $nid){
+function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $nid, &$temp_list){
     $dep_list = array();
     foreach($dependencies as $dep => $ver){
         //First we'll try and find the library
@@ -1260,11 +1260,14 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
             }
         }
         if(array_key_exists('dependencies', $bower)){
+            if(!in_array($dep, $temp_list)){
+                $dep_arr = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
+            }
             foreach($bower->dependencies as $d => $v){
-                $dep_arr = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $error);
                 $deps[] = $d;
             }
         }
+        $temp_list[] = $dep;
         $dep_list[] = array('name' => $dep, 'main' => $mains, 'dep' => $deps);
         if(isset($dep_arr) && is_array($dep_arr)) $dep_list = array_merge($dep_list , $dep_arr);
     }
@@ -1283,6 +1286,8 @@ function _science_apps_workspace_libraries_flat($dep_list, $nid){
     foreach($dep_list as $a){
         if(!is_array($a))break;
         foreach($a['main'] as $lib){
+            $alib = explode('/', $lib);
+            if($alib[count($alib) - 1] == 'jquery.js' || $alib[count($alib) - 1] == 'jquery.min.js') continue;
             $ret[] = 'app-embed/' . $nid . '/bower_components/' . $a['name'] . '/' . $lib;
         }
     }
@@ -1309,23 +1314,23 @@ function science_apps_workspace_load_local_libraries($nid) {
           }
       }
       $dep_list[] = array('name' => 'main', 'main' => $ms, 'deps' => array());
-  }$dep_list['dependencies'][] = $bower->main;
-
-  if(array_key_exists('dependencies', $bower)) {
-    $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $error);
   }
-    if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
-    usort($dep_list, '_science_apps_workspace_dep_sort');
-    $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
-    $dep_list = array_unique($dep_list);
-
-    foreach ($dep_list as $file) {
-      if (substr($file, -3) === 'css') {
-        drupal_add_css($file, 'file');
-      } elseif (substr($file, -2) === 'js') {
-        drupal_add_js($file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
-      }
+  $dep_list['dependencies'][] = $bower->main;
+  $temp_list = array();
+  if(array_key_exists('dependencies', $bower)) {
+    $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
+  }
+  if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
+  usort($dep_list, '_science_apps_workspace_dep_sort');
+  $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
+  $dep_list = array_unique($dep_list);
+  foreach ($dep_list as $file) {
+    if (substr($file, -3) === 'css') {
+      drupal_add_css($file, 'file');
+    } else{
+      drupal_add_js($file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
     }
+  }
   return $loaded;
 }
 
