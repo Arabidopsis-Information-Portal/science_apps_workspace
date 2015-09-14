@@ -293,6 +293,15 @@ function science_apps_workspace_science_app_publish($node) {
           '#prefix' => '<p>',
           '#suffix' => '</p>',
         ),
+        array(
+          '#prefix' => '<dl>',
+          '#suffix' => '</dl>',
+          'children' => array(
+            array('#markup' => '<dt>Description</dt><dd>'.$publication_request->description.'</dd>'),
+            array('#markup' => '<dt>Data sources</dt><dd>'.$publication_request->data_sources.'</dd>'),
+            array('#markup' => '<dt>Technical contact</dt><dd><a href="mailto:'.$publication_request->technical_contact_mail.'">'.$publication_request->technical_contact_name.'</a></dd>'),
+          ),
+        ),
       ),
     );
   } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
