@@ -1,17 +1,19 @@
 <?php
 
-function science_apps_workspace_science_app_publish_admin() {
+function science_apps_workspace_science_app_publish_admin($request_status = SCIENCE_APP_REQUEST_SUBMITTED) {
+  error_log('status: '.$request_status);
   $query = db_select('science_apps_workspace_app_publication_request', 'pr');
   $publication_requests = $query->fields('pr')
+                                ->condition('pr.status', $request_status, '=')
                                 ->execute()
-                                ->fetchAllAssoc('nid');
-
-  $apps = node_load_multiple(array_keys($publication_requests));
+                                ->fetchAllAssoc('rid');
   $rows = array();
-  foreach ($apps as $nid => $app) {
-    $pr = $publication_requests[$nid];
+  foreach ($publication_requests as $pr) {
+    $nid = $pr->nid;
+    $app = node_load($nid);
     $rows[] = array(
       l($app->title, "node/$nid"),
+      $pr->status,
       l($pr->technical_contact_name, "mailto:$pr->technical_contact_mail", array('absolute' => TRUE)),
       strftime('%b %e, %Y', $pr->created),
       l(t('Review'), "admin/config/araport/publication-requests/{$pr->rid}", array('attributes' => array('class' => array('btn', 'btn-primary')))),
@@ -28,6 +30,7 @@ function science_apps_workspace_science_app_publish_admin() {
       '#theme' => 'table',
       '#header' => array(
         t('Application name'),
+        t('Status'),
         t('Technical contact'),
         t('Requested'),
         t('Action'),
@@ -35,12 +38,6 @@ function science_apps_workspace_science_app_publish_admin() {
       '#rows' => $rows,
       '#empty' => t('There are pending app publication requests.'),
     ),
-    // array(
-    //   '#markup' => '<pre>'.print_r($publication_requests,1).'</pre>'
-    // ),
-    // array(
-    //   '#markup' => '<pre>'.print_r($apps,1).'</pre>'
-    // ),
   );
 }
 
@@ -129,7 +126,7 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
 
   // Update the node, if necessary
   if ($form_state['values']['published'] == SCIENCE_APP_PUBLISHED_YES) {
-    $node->status = 1;
+    $node->status = SCIENCE_APP_PUBLISHED_YES;
   } else {
     $node->status = 0;
   }

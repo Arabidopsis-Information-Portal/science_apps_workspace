@@ -8,6 +8,10 @@ define('SCIENCE_APP_PUBLISHED_NO', 0);
 define('SCIENCE_APP_PUBLISHED_YES', 1);
 define('SCIENCE_APP_PUBLISHED_REQUESTED', 2);
 
+define('SCIENCE_APP_REQUEST_SUBMITTED', 0);
+define('SCIENCE_APP_REQUEST_RETURNED', 1);
+define('SCIENCE_APP_REQUEST_COMPLETED', 2);
+
 /**
  * Implements hook_menu().
  */
@@ -180,8 +184,39 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array(SCIENCE_APP_REQUEST_SUBMITTED),
     'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps')
+  );
+
+  $items['admin/config/araport/publication-requests/submitted'] = array(
+    'title' => 'Submitted',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('admin science apps'),
+    'weight' => 0,
+  );
+
+  $items['admin/config/araport/publication-requests/returned'] = array(
+    'title' => 'Returned to user',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array(SCIENCE_APP_REQUEST_RETURNED),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+    'weight' => 1,
+  );
+
+  $items['admin/config/araport/publication-requests/completed'] = array(
+    'title' => 'Completed',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array(SCIENCE_APP_REQUEST_COMPLETED),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+    'weight' => 2,
   );
 
   $items['admin/config/araport/publication-requests/%'] = array(
@@ -459,9 +494,9 @@ function science_app_embed($node) {
     }
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
-    if ( $mtype == 'application/javascript' || 
+    if ( $mtype == 'application/javascript' ||
          $mtype == 'application/x-javascript' ||
-         $mtype == 'text/css' || 
+         $mtype == 'text/css' ||
          $mtype == 'text/plain' ||
          $mtype == 'text/html'){
         print file_get_contents($asset_dir);
@@ -539,7 +574,7 @@ function science_app_node_form_submit(&$form, &$form_state){
     $ver = $form["science_app_version"]["und"][0]["value"]["#value"];
     $reload = $form['hard_reload']['#value'];
     $app = node_load($form["nid"]["#value"]);
-    if($repo != $app->science_app_repository["und"][0]["value"] || 
+    if($repo != $app->science_app_repository["und"][0]["value"] ||
        ($app->science_app_version && ($ver != $app->science_app_version["und"][0]["value"])) ||
        $reload){
 
@@ -1000,8 +1035,8 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
 
 function _science_apps_workspace_app_dependencies_process_local($app_nid) {
   $dependencies_dir = _science_apps_workspace_apps_repo($app_nid);
-  if(is_dir($dependencies_dir) && 
-      (is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json') || 
+  if(is_dir($dependencies_dir) &&
+      (is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json') ||
        is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'component.json'))
     ){
     $cmd = escapeshellcmd('cd ' . drupal_realpath($dependencies_dir));
@@ -1198,7 +1233,7 @@ function theme_science_app_display($vars) {
     // return app.html
     $app_html = file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $app_html_uri)));
 
-    #$app_html = preg_replace("/(href|src)\s*=['\"](?!\/\/)([^\s:]+)['\"]/", 
+    #$app_html = preg_replace("/(href|src)\s*=['\"](?!\/\/)([^\s:]+)['\"]/",
     #                         '${1}="/app-embed/' . $node->nid . '/${2}"', $app_html);
     //TODO: document relative reference to assets.
     return $app_html;
@@ -1225,16 +1260,16 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
     foreach($dependencies as $dep => $ver){
         //First we'll try and find the library
         if(!is_dir($base_path . DIRECTORY_SEPARATOR . $dep)){
-            watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed for library: @lib; Library missing.', 
-                      array('@nid' => $nid, '@lib' => $dep), 
+            watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed for library: @lib; Library missing.',
+                      array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
         $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'bower.json';
         if(!is_file($bower)) $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'component.json';
         if(!is_file($bower)){
-            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.', 
-                      array('@nid' => $nid, '@lib' => $dep), 
+            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.',
+                      array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
@@ -1242,7 +1277,7 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
         $dep_base_path = $base_path . DIRECTORY_SEPARATOR . $dep;
         $mains = array();
         $deps = array();
-        $bower = json_decode(file_get_contents($bower)); 
+        $bower = json_decode(file_get_contents($bower));
         if(array_key_exists('main', $bower)){
             if(!is_array($bower->main)) $mains[] = $bower->main;
             else{
