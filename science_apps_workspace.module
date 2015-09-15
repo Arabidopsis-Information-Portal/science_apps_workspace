@@ -184,7 +184,7 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
-    'page arguments' => array(SCIENCE_APP_REQUEST_SUBMITTED),
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_SUBMITTED),
     'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps')
   );
@@ -193,6 +193,9 @@ function science_apps_workspace_menu(){
     'title' => 'Submitted',
     'description' => 'Review App Publication Requests',
     'type' => MENU_DEFAULT_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_SUBMITTED),
+    'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps'),
     'weight' => 0,
   );
@@ -202,7 +205,7 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_LOCAL_TASK,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
-    'page arguments' => array(SCIENCE_APP_REQUEST_RETURNED),
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_RETURNED),
     'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps'),
     'weight' => 1,
@@ -213,7 +216,7 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_LOCAL_TASK,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
-    'page arguments' => array(SCIENCE_APP_REQUEST_COMPLETED),
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_COMPLETED),
     'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps'),
     'weight' => 2,

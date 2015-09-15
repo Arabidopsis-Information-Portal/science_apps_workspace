@@ -1,7 +1,6 @@
 <?php
 
 function science_apps_workspace_science_app_publish_admin($request_status = SCIENCE_APP_REQUEST_SUBMITTED) {
-  error_log('status: '.$request_status);
   $query = db_select('science_apps_workspace_app_publication_request', 'pr');
   $publication_requests = $query->fields('pr')
                                 ->condition('pr.status', $request_status, '=')
@@ -13,7 +12,6 @@ function science_apps_workspace_science_app_publish_admin($request_status = SCIE
     $app = node_load($nid);
     $rows[] = array(
       l($app->title, "node/$nid"),
-      $pr->status,
       l($pr->technical_contact_name, "mailto:$pr->technical_contact_mail", array('absolute' => TRUE)),
       strftime('%b %e, %Y', $pr->created),
       l(t('Review'), "admin/config/araport/publication-requests/{$pr->rid}", array('attributes' => array('class' => array('btn', 'btn-primary')))),
@@ -30,13 +28,12 @@ function science_apps_workspace_science_app_publish_admin($request_status = SCIE
       '#theme' => 'table',
       '#header' => array(
         t('Application name'),
-        t('Status'),
         t('Technical contact'),
         t('Requested'),
         t('Action'),
       ),
       '#rows' => $rows,
-      '#empty' => t('There are pending app publication requests.'),
+      '#empty' => t('There are no app publication requests in this status.'),
     ),
   );
 }
@@ -60,12 +57,6 @@ function science_apps_workspace_science_app_publish_admin_review($rid) {
     ),
 
     drupal_get_form('science_apps_workspace_science_app_publish_admin_review_form', $req, $node),
-
-    // array(
-    //   '#theme' => 'html_tag',
-    //   '#tag' => 'pre',
-    //   '#value' => print_r($req, 1),
-    // ),
   );
 }
 
@@ -90,22 +81,25 @@ function science_apps_workspace_science_app_publish_admin_review_form($form, &$f
     '#default_value' => $app_request->publication_notes,
   );
 
-  $form['published'] = array(
-    '#type' => 'select',
-    '#title' => t('Published Status'),
-    '#options' => array(
-      t('Not Published'),
-      t('Published'),
-      t('Requested'),
-    ),
-    '#required' => TRUE,
-    '#default_value' => $node->science_app_config->published,
-  );
-
   $form['actions'] = array(
-    'submit' => array(
+    'save' => array(
       '#type' => 'submit',
-      '#value' => t('Save Review'),
+      '#value' => t('Save for Later'),
+    ),
+
+    'return' => array(
+      '#type' => 'submit',
+      '#value' => t('Return to User'),
+    ),
+
+    'accept' => array(
+      '#type' => 'submit',
+      '#value' => t('Accept Publication Request'),
+    ),
+
+    'reject' => array(
+      '#type' => 'submit',
+      '#value' => t('Reject Publication Request'),
     ),
   );
 
@@ -113,28 +107,29 @@ function science_apps_workspace_science_app_publish_admin_review_form($form, &$f
 }
 
 function science_apps_workspace_science_app_publish_admin_review_form_submit($form, &$form_state) {
+
   $app_request = $form_state['values']['app_request'];
   $node = $form_state['values']['node'];
+  $op = $form_state['clicked_button']['#value'];
 
-  // Update the config
-  $node->science_app_config->published = $form_state['values']['published'];
-  $node->science_app_config->no_update = TRUE;
-  db_update('science_apps_workspace_app_config')
-    ->fields(array('published' => $node->science_app_config->published))
-    ->condition('nid', $node->nid)
-    ->execute();
+  watchdog('science_apps_workspace', print_r($app_request, 1), array(), WATCHDOG_DEBUG);
 
-  // Update the node, if necessary
-  if ($form_state['values']['published'] == SCIENCE_APP_PUBLISHED_YES) {
-    $node->status = SCIENCE_APP_PUBLISHED_YES;
-  } else {
+  if ($op == $form_state['values']['return']) {
+    $app_request->status = SCIENCE_APP_REQUEST_RETURNED;
+  } else if ($op == $form_state['values']['accept']) {
+    $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
+    $node->status = 1;
+    $node->science_app_config->published = SCIENCE_APP_PUBLISHED_YES;
+    $node->science_app_config->no_update = TRUE;
+  } else if ($op == $form_state['values']['reject']) {
+    $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
     $node->status = 0;
+    $node->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
+    $node->science_app_config->no_update = TRUE;
   }
-  node_save($node);
 
   // Update the review requeset
   $app_request->publication_notes = $form_state['values']['publication_notes'];
-  $app_request->status = 1;
   db_update('science_apps_workspace_app_publication_request')
     ->fields(array(
       'publication_notes' => $app_request->publication_notes,
@@ -142,6 +137,15 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
     ))
     ->condition('rid', $app_request->rid)
     ->execute();
+
+  // Update the config
+  db_update('science_apps_workspace_app_config')
+    ->fields(array('published' => $node->science_app_config->published))
+    ->condition('nid', $node->nid)
+    ->execute();
+
+  // Update the node
+  node_save($node);
 
   drupal_set_message('Application Review Saved!');
   drupal_goto('admin/config/araport/publication-requests');

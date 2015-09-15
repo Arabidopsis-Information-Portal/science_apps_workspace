@@ -269,14 +269,14 @@ function science_apps_workspace_admin_default_workspace_submit(&$form, &$form_st
   drupal_set_message(t('The Default Workspace Configuration has been saved!'));
 }
 
-function science_apps_workspace_science_app_publish_form($form, &$form_state, $app) {
+function science_apps_workspace_science_app_publish_form($form, &$form_state, $app_node, $publication_request = NULL) {
   $form = array();
   global $user;
 
   $form['nid'] = array(
     '#type' => 'hidden',
     '#title' => t('App NID'),
-    '#value' => $app->nid,
+    '#value' => $app_node->nid,
   );
 
   $form['uid'] = array(
@@ -299,7 +299,7 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
     '#required' => TRUE,
   );
 
-  $author = user_load($app->uid);
+  $author = user_load($app_node->uid);
   if (module_exists('profile2')) {
     $profiles = profile2_load_by_user($author->uid);
     $name = implode(' ', array(
@@ -332,7 +332,7 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
       '#value' => t('Submit Publication Request'),
     ),
     'cancel' => array(
-      '#markup' => l(t('Cancel'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))),
+      '#markup' => l(t('Cancel'), "node/{$app_node->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))),
     )
   );
 
