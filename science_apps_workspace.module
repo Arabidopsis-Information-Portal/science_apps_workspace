@@ -459,9 +459,9 @@ function science_app_embed($node) {
     }
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
-    if ( $mtype == 'application/javascript' || 
+    if ( $mtype == 'application/javascript' ||
          $mtype == 'application/x-javascript' ||
-         $mtype == 'text/css' || 
+         $mtype == 'text/css' ||
          $mtype == 'text/plain' ||
          $mtype == 'text/html'){
         print file_get_contents($asset_dir);
@@ -539,7 +539,7 @@ function science_app_node_form_submit(&$form, &$form_state){
     $ver = $form["science_app_version"]["und"][0]["value"]["#value"];
     $reload = $form['hard_reload']['#value'];
     $app = node_load($form["nid"]["#value"]);
-    if($repo != $app->science_app_repository["und"][0]["value"] || 
+    if($repo != $app->science_app_repository["und"][0]["value"] ||
        ($app->science_app_version && ($ver != $app->science_app_version["und"][0]["value"])) ||
        $reload){
 
@@ -1000,8 +1000,8 @@ function _science_apps_workspace_app_dependencies_ready($app_nid) {
 
 function _science_apps_workspace_app_dependencies_process_local($app_nid) {
   $dependencies_dir = _science_apps_workspace_apps_repo($app_nid);
-  if(is_dir($dependencies_dir) && 
-      (is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json') || 
+  if(is_dir($dependencies_dir) &&
+      (is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'bower.json') ||
        is_file($dependencies_dir . DIRECTORY_SEPARATOR . 'component.json'))
     ){
     $cmd = escapeshellcmd('cd ' . drupal_realpath($dependencies_dir));
@@ -1198,7 +1198,7 @@ function theme_science_app_display($vars) {
     // return app.html
     $app_html = file_get_contents(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', $app_html_uri)));
 
-    #$app_html = preg_replace("/(href|src)\s*=['\"](?!\/\/)([^\s:]+)['\"]/", 
+    #$app_html = preg_replace("/(href|src)\s*=['\"](?!\/\/)([^\s:]+)['\"]/",
     #                         '${1}="/app-embed/' . $node->nid . '/${2}"', $app_html);
     //TODO: document relative reference to assets.
     return $app_html;
@@ -1222,56 +1222,72 @@ function theme_science_app_display($vars) {
 
 function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $nid, &$temp_list){
     $dep_list = array();
-    foreach($dependencies as $dep => $ver){
+
+    foreach($dependencies as $dep => $ver) {
+        if (strtolower($dep) == 'jquery' || strtolower($dep) == 'bootstrap') {
+          continue;
+        }
         //First we'll try and find the library
         if(!is_dir($base_path . DIRECTORY_SEPARATOR . $dep)){
-            watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed for library: @lib; Library missing.', 
-                      array('@nid' => $nid, '@lib' => $dep), 
+            watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed for library: @lib; Library missing.',
+                      array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
         $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'bower.json';
         if(!is_file($bower)) $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'component.json';
         if(!is_file($bower)){
-            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.', 
-                      array('@nid' => $nid, '@lib' => $dep), 
+            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.',
+                      array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
+
+
+        $bower = json_decode(file_get_contents($bower));
+
+        if (array_key_exists('dependencies', $bower)) {
+          $dep_list = array_merge($dep_list, _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list));
+        }
+
         //Now let's first grab the files under main.
-        $dep_base_path = $base_path . DIRECTORY_SEPARATOR . $dep;
-        $mains = array();
-        $deps = array();
-        $bower = json_decode(file_get_contents($bower)); 
-        if(array_key_exists('main', $bower)){
-            if(!is_array($bower->main)) $mains[] = $bower->main;
-            else{
-                foreach($bower->main as $m){
-                    if(!is_file($dep_base_path . DIRECTORY_SEPARATOR . $m)){
-                        $error = True;
-                        watchdog('science_apps_worskpace',
-                                 'Library loading for App (nid=@nid) failed for libary: @lib; File @file missing',
-                                 array('@nid' => $nid, '@lib' => $dep, '@file' => $m),
-                                 WATCHDOG_ERROR);
-                        return array('error' => true);
-                    }
-                    $mains[] = $m;
-                }
+        // $dep_base_path = $base_path . DIRECTORY_SEPARATOR . $dep;
+        if (array_key_exists('main', $bower)) {
+            if (is_array($bower->main)) {
+              foreach ($bower->main as $dep_file) {
+                $dep_list[] = $dep . DIRECTORY_SEPARATOR . $dep_file;
+              }
+            } else {
+              $dep_list[] = $dep . DIRECTORY_SEPARATOR . $bower->main;
             }
         }
-        if(array_key_exists('dependencies', $bower)){
-            if(!in_array($dep, $temp_list)){
-                $dep_arr = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
-            }
-            foreach($bower->dependencies as $d => $v){
-                $deps[] = $d;
-            }
-        }
-        $temp_list[] = $dep;
-        $dep_list[] = array('name' => $dep, 'main' => $mains, 'dep' => $deps);
-        if(isset($dep_arr) && is_array($dep_arr)) $dep_list = array_merge($dep_list , $dep_arr);
+        //     else{
+        //         foreach($bower->main as $m){
+        //             if(!is_file($dep_base_path . DIRECTORY_SEPARATOR . $m)){
+        //                 $error = True;
+        //                 watchdog('science_apps_worskpace',
+        //                          'Library loading for App (nid=@nid) failed for libary: @lib; File @file missing',
+        //                          array('@nid' => $nid, '@lib' => $dep, '@file' => $m),
+        //                          WATCHDOG_ERROR);
+        //                 return array('error' => true);
+        //             }
+        //             $mains[] = $m;
+        //         }
+        //     }
+        // }
+        // if(array_key_exists('dependencies', $bower)){
+        //     if(!in_array($dep, $temp_list)){
+        //         $dep_arr = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
+        //     }
+        //     foreach($bower->dependencies as $d => $v){
+        //         $deps[] = $d;
+        //     }
+        // }
+        // $temp_list[] = $dep;
+        // $dep_list[] = array('name' => $dep, 'main' => $mains, 'dep' => $deps);
+        // if(isset($dep_arr) && is_array($dep_arr)) $dep_list = array_merge($dep_list , $dep_arr);
     }
-    $error = $terror;
+    $dep_list = array_unique($dep_list);
     return $dep_list;
 }
 
@@ -1305,30 +1321,40 @@ function science_apps_workspace_load_local_libraries($nid) {
       watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed, bower.json file missing ', array('@nid'=> $nid), WATCHDOG_ERROR);
   }
   $bower = json_decode(file_get_contents($bower));
-  if(array_key_exists('main', $bower)) {
-      $ms = array();
-      if(!is_array($bower->main))$ms[] = $bower->main;
-      else{
-          foreach($bower->main as $m){
-              $ms[] = $m;
-          }
-      }
-      $dep_list[] = array('name' => 'main', 'main' => $ms, 'deps' => array());
-  }
-  $dep_list['dependencies'][] = $bower->main;
+  // if(array_key_exists('main', $bower)) {
+  //     $ms = array();
+  //     if(!is_array($bower->main))$ms[] = $bower->main;
+  //     else{
+  //         foreach($bower->main as $m){
+  //             $ms[] = $m;
+  //         }
+  //     }
+  //     $dep_list[] = array('name' => 'main', 'main' => $ms, 'deps' => array());
+  // }
   $temp_list = array();
   if(array_key_exists('dependencies', $bower)) {
     $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
   }
-  if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
-  usort($dep_list, '_science_apps_workspace_dep_sort');
-  $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
-  $dep_list = array_unique($dep_list);
+  if (array_key_exists('main', $bower)) {
+    if (is_array($bower->main)) {
+      $dep_list = array_merge($dep_list, $bower->main);
+    } else {
+      $dep_list[] = $bower->main;
+    }
+  }
+  // watchdog('science_apps_workspace', print_r($dep_list, 1));
+  // if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
+  // watchdog('science_apps_workspace', print_r($dep_list, 1));
+  // usort($dep_list, '_science_apps_workspace_dep_sort');
+  // watchdog('science_apps_workspace', print_r($dep_list, 1));
+  // $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
+  // $dep_list = array_unique($dep_list);
   foreach ($dep_list as $file) {
+    watchdog('science_apps_workspace', $file);
     if (substr($file, -3) === 'css') {
-      drupal_add_css($file, array('type' => 'file', 'preprocess' => FALSE));
+      drupal_add_css("app-embed/$nid/bower_components/".$file, array('type' => 'file', 'preprocess' => FALSE));
     } else{
-      drupal_add_js($file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
+      drupal_add_js("app-embed/$nid/bower_components/".$file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
     }
   }
   return $loaded;
@@ -1338,7 +1364,7 @@ function science_apps_workspace_load_local_libraries($nid) {
  * Adds the necessary files for these libraries to the page.
  * @param $libraries
  *    An array of libraries to load from sites/all/libraries/science_apps_workspace/bower_components
- * Deprecetaed for science_apps_workspace_load_local_libraries
+ * @deprecetaed for science_apps_workspace_load_local_libraries
  */
 function science_apps_workspace_load_libraries($libraries) {
   $loaded = TRUE;
