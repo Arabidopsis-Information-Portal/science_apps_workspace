@@ -1246,12 +1246,11 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
 
         $bower = json_decode(file_get_contents($bower));
 
-        if (array_key_exists('dependencies', $bower)) {
+        if (array_key_exists('dependencies', $bower) && !in_array($dep, $temp_list)) {
+          $temp_list[] = $dep;
           $dep_list = array_merge($dep_list, _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list));
         }
-
         //Now let's first grab the files under main.
-        // $dep_base_path = $base_path . DIRECTORY_SEPARATOR . $dep;
         if (array_key_exists('main', $bower)) {
             if (is_array($bower->main)) {
               foreach ($bower->main as $dep_file) {
@@ -1261,53 +1260,9 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
               $dep_list[] = $dep . DIRECTORY_SEPARATOR . $bower->main;
             }
         }
-        //     else{
-        //         foreach($bower->main as $m){
-        //             if(!is_file($dep_base_path . DIRECTORY_SEPARATOR . $m)){
-        //                 $error = True;
-        //                 watchdog('science_apps_worskpace',
-        //                          'Library loading for App (nid=@nid) failed for libary: @lib; File @file missing',
-        //                          array('@nid' => $nid, '@lib' => $dep, '@file' => $m),
-        //                          WATCHDOG_ERROR);
-        //                 return array('error' => true);
-        //             }
-        //             $mains[] = $m;
-        //         }
-        //     }
-        // }
-        // if(array_key_exists('dependencies', $bower)){
-        //     if(!in_array($dep, $temp_list)){
-        //         $dep_arr = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
-        //     }
-        //     foreach($bower->dependencies as $d => $v){
-        //         $deps[] = $d;
-        //     }
-        // }
-        // $temp_list[] = $dep;
-        // $dep_list[] = array('name' => $dep, 'main' => $mains, 'dep' => $deps);
-        // if(isset($dep_arr) && is_array($dep_arr)) $dep_list = array_merge($dep_list , $dep_arr);
     }
     $dep_list = array_unique($dep_list);
     return $dep_list;
-}
-
-function _science_apps_workspace_dep_sort($a, $b){
-    if(in_array($a->name, $b->dep)) return 1;
-    if(in_array($b->name, $a->dep)) return -1;
-    return 0;
-}
-
-function _science_apps_workspace_libraries_flat($dep_list, $nid){
-    $ret = array();
-    foreach($dep_list as $a){
-        if(!is_array($a))break;
-        foreach($a['main'] as $lib){
-            $alib = explode('/', $lib);
-            if($alib[count($alib) - 1] == 'jquery.js' || $alib[count($alib) - 1] == 'jquery.min.js') continue;
-            $ret[] = 'app-embed/' . $nid . '/bower_components/' . $a['name'] . '/' . $lib;
-        }
-    }
-    return $ret;
 }
 
 function science_apps_workspace_load_local_libraries($nid) {
@@ -1321,16 +1276,6 @@ function science_apps_workspace_load_local_libraries($nid) {
       watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed, bower.json file missing ', array('@nid'=> $nid), WATCHDOG_ERROR);
   }
   $bower = json_decode(file_get_contents($bower));
-  // if(array_key_exists('main', $bower)) {
-  //     $ms = array();
-  //     if(!is_array($bower->main))$ms[] = $bower->main;
-  //     else{
-  //         foreach($bower->main as $m){
-  //             $ms[] = $m;
-  //         }
-  //     }
-  //     $dep_list[] = array('name' => 'main', 'main' => $ms, 'deps' => array());
-  // }
   $temp_list = array();
   if(array_key_exists('dependencies', $bower)) {
     $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
@@ -1342,13 +1287,6 @@ function science_apps_workspace_load_local_libraries($nid) {
       $dep_list[] = $bower->main;
     }
   }
-  // watchdog('science_apps_workspace', print_r($dep_list, 1));
-  // if(array_key_exists('error', $dep_list) && $dep_list['error']) $loaded = false;
-  // watchdog('science_apps_workspace', print_r($dep_list, 1));
-  // usort($dep_list, '_science_apps_workspace_dep_sort');
-  // watchdog('science_apps_workspace', print_r($dep_list, 1));
-  // $dep_list = _science_apps_workspace_libraries_flat($dep_list, $nid);
-  // $dep_list = array_unique($dep_list);
   foreach ($dep_list as $file) {
     watchdog('science_apps_workspace', $file);
     if (substr($file, -3) === 'css') {
