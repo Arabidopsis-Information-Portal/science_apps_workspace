@@ -283,64 +283,25 @@ function science_apps_workspace_science_app_publish($node) {
     if ($publication_request) {
       if ($publication_request->status == SCIENCE_APP_REQUEST_SUBMITTED) {
         $output[] = array(
-          '#prefix' => '<div class="jumbotron">',
-          '#suffix' => '</div>',
-          'children' => array(
-            array(
-              '#markup' => t('Publication pending.'),
-              '#prefix' => '<h2>',
-              '#suffix' => '</h2>',
-            ),
-            array(
-              '#markup' => t('Publication for this application was requested on @created, and is pending review from the Araport team.', array('@created' => strftime('%b %e, %Y', $publication_request->created))),
-              '#prefix' => '<p>',
-              '#suffix' => '</p>',
-            ),
-            array(
-              '#prefix' => '<dl>',
-              '#suffix' => '</dl>',
-              'children' => array(
-                array('#markup' => '<dt>Description</dt><dd>'.$publication_request->description.'</dd>'),
-                array('#markup' => '<dt>Data sources</dt><dd>'.$publication_request->data_sources.'</dd>'),
-                array('#markup' => '<dt>Technical contact</dt><dd><a href="mailto:'.$publication_request->technical_contact_mail.'">'.$publication_request->technical_contact_name.'</a></dd>'),
-              ),
-            ),
-          ),
+          '#theme' => 'science_app_publication_request_submitted',
+          '#message' => t('Publication for this application was requested on @date, and is pending review from the Araport team.', array('@date' => strftime('%b %e, %Y', $publication_request->changed))),
+          '#request' => $publication_request,
         );
       } else if ($publication_request->status == SCIENCE_APP_REQUEST_RETURNED) {
         $output[] = array(
-          '#prefix' => '<div class="jumbotron">',
-          '#suffix' => '</div>',
-          'children' => array(
-            array(
-              '#markup' => t('More information required.'),
-              '#prefix' => '<h2>',
-              '#suffix' => '</h2>',
-            ),
-            array(
-              '#markup' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s notes below.'),
-              '#prefix' => '<p>',
-              '#suffix' => '</p>',
-            ),
-          ),
+          '#theme' => 'science_app_publication_request_returned',
+          '#message' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s notes below.'),
+          '#request' => $publication_request,
         );
         $output[] = array(
-          '#markup' => $publication_request->publication_notes,
-          '#prefix' => '<p>',
-          '#suffix' => '</p>',
+          '#markup' => '<p class="alert alert-info">'. t('Please make the requested changes and resubmit your request below.') .'</p>'
         );
-        $output[] = array(
-          '#prefix' => '<dl>',
-          '#suffix' => '</dl>',
-          'children' => array(
-            array('#markup' => '<dt>Description</dt><dd>'.$publication_request->description.'</dd>'),
-            array('#markup' => '<dt>Data sources</dt><dd>'.$publication_request->data_sources.'</dd>'),
-            array('#markup' => '<dt>Technical contact</dt><dd><a href="mailto:'.$publication_request->technical_contact_mail.'">'.$publication_request->technical_contact_name.'</a></dd>'),
-          ),
-        );
+
+        module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
+        $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node, $publication_request);
       } else {
-        // rejected
-        $output = 'request rejected';
+        // app is NOT published but request is COMPLETED (i.e., reject or unpublish)
+
       }
     } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
       $output[] = array(

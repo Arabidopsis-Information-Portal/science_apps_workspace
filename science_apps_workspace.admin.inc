@@ -97,10 +97,10 @@ function science_apps_workspace_science_app_publish_admin_review_form($form, &$f
       '#value' => t('Accept Publication Request'),
     ),
 
-    'reject' => array(
-      '#type' => 'submit',
-      '#value' => t('Reject Publication Request'),
-    ),
+    // 'reject' => array(
+    //   '#type' => 'submit',
+    //   '#value' => t('Reject Publication Request'),
+    // ),
   );
 
   return $form;
@@ -121,12 +121,14 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
     $node->status = 1;
     $node->science_app_config->published = SCIENCE_APP_PUBLISHED_YES;
     $node->science_app_config->no_update = TRUE;
-  } else if ($op == $form_state['values']['reject']) {
-    $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
-    $node->status = 0;
-    $node->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
-    $node->science_app_config->no_update = TRUE;
+  // } else if ($op == $form_state['values']['reject']) {
+  //   $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
+  //   $node->status = 0;
+  //   $node->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
+  //   $node->science_app_config->no_update = TRUE;
   }
+
+  // TODO implement user notifications
 
   // Update the review requeset
   $app_request->publication_notes = $form_state['values']['publication_notes'];

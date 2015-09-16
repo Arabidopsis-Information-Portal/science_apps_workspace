@@ -1093,6 +1093,9 @@ function _science_apps_workspace_app_dependencies_process($app_nid) {
   return FALSE;
 }
 
+/**
+ * Implements hook_theme().
+ */
 function science_apps_workspace_theme() {
   $template_path = drupal_get_path('module', 'science_apps_workspace'). '/theme';
   return array(
@@ -1168,6 +1171,33 @@ function science_apps_workspace_theme() {
         'request_data' => null,
       ),
       'template' => 'publication_request',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_submitted' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_submitted',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_returned' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_returned',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_rejected' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_rejected',
       'path' => $template_path,
     ),
   );
