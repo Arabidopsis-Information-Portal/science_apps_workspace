@@ -1504,3 +1504,55 @@ function _science_apps_workspace_app_preview_js() {
 JS;
   drupal_add_js($script, array('type' => 'inline', 'scope' => 'footer'));
 }
+
+function _science_apps_workspace_apps_administrators() {
+  $users = array();
+  $role = user_role_load_by_name('apps administrator');
+  if ($role) {
+    $rid = $role->rid;
+    $uids = db_select('users_roles', 'ur')
+                ->fields('ur', array('uid'))
+                ->condition('ur.rid', $rid)
+                ->execute()->fetchCol();
+    if (!empty($uids)) {
+      $query = new EntityFieldQuery();
+      $query->entityCondition('entity_type', 'user')
+            ->propertyCondition('uid', $uids, 'IN')
+            ->propertyCondition('status', 1);
+      $entities = $query->execute();
+      if (!empty($entities)) {
+        $users = user_load_multiple(array_keys($entities['user']));
+      }
+    }
+  }
+
+  return $users;
+}
+
+/**
+ *
+ * Implements hook_mail()
+ */
+function science_apps_workspace_mail($key, &$message, $params) {
+  switch ($key){
+    case 'publication_request_notify_admin':
+    $rid = $params['rid'];
+    $message['subject'] = t('Science App Publication Request Awaiting Approval');
+    $message['body'][] = t('A user has submitted their science app for publication. Please review the request: !link',
+      array(
+        '!link' => url("admin/config/araport/publication-requests/$rid", array('absolute' => TRUE))
+      )
+    );
+    break;
+
+    case 'publication_request_notify_user':
+    $nid = $params['nid'];
+    $message['subject'] = t('Your Science App Publication Request Has Been Updated');
+    $message['body'][] = t('You recently submitted a science app for publication. You request has been reviewed an updated by the Science App Review team. You can view the status of your request here: !link',
+      array(
+        '!link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
+      )
+    );
+    break;
+  }
+}

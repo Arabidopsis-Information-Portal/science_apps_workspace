@@ -287,7 +287,7 @@ function science_apps_workspace_science_app_publish($node) {
           '#message' => t('Publication for this application was requested on @date, and is pending review from the Araport team.', array('@date' => strftime('%b %e, %Y', $publication_request->changed))),
           '#request' => $publication_request,
         );
-      } else if ($publication_request->status == SCIENCE_APP_REQUEST_RETURNED) {
+      } else {
         $output[] = array(
           '#theme' => 'science_app_publication_request_returned',
           '#message' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s notes below.'),
@@ -299,9 +299,6 @@ function science_apps_workspace_science_app_publish($node) {
 
         module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
         $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node, $publication_request);
-      } else {
-        // app is NOT published but request is COMPLETED (i.e., reject or unpublish)
-
       }
     } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
       $output[] = array(
