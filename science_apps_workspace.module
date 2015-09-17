@@ -1186,15 +1186,15 @@ function theme_science_app_display($vars) {
     }
     else {
         $app_html_uri = 'app.html';
-        $app_scripts = array('app.js');
-        $app_styles = array('app.css');
+        $app_scripts = array('scripts/app.js');
+        $app_styles = array('styles/app.css');
     }
     // add app.css
     foreach($app_styles as $style){
-        drupal_add_css($app_dir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'styles' . DIRECTORY_SEPARATOR . $style, array('type' => 'file', 'preprocess'=>FALSE));
+        drupal_add_css('/app-embed/' . $node->nid . '/app/' . $style, array('type' => 'file', 'preprocess'=>FALSE));
     }
     foreach($app_scripts as $script){
-        drupal_add_js('app-embed/' . $node->nid . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . $script, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
+        drupal_add_js('app-embed/' . $node->nid . '/app/' . $script, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
     }
     // add app.js
 
@@ -1267,7 +1267,6 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
 }
 
 function science_apps_workspace_load_local_libraries($nid) {
-  $loaded = TRUE;
   $error = False;
   $app_path = _science_apps_workspace_apps_repo($nid);
   $base_path = $app_path . DIRECTORY_SEPARATOR . 'bower_components';
@@ -1280,6 +1279,10 @@ function science_apps_workspace_load_local_libraries($nid) {
   $temp_list = array();
   if(array_key_exists('dependencies', $bower)) {
     $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
+  }
+  error_log(print_r($dep_list));
+  if(array_key_exists('error', $dep_list) && $dep_list['error']){
+      return FALSE;
   }
   if (array_key_exists('main', $bower)) {
     if (is_array($bower->main)) {
@@ -1296,7 +1299,7 @@ function science_apps_workspace_load_local_libraries($nid) {
       drupal_add_js("app-embed/$nid/bower_components/".$file, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
     }
   }
-  return $loaded;
+  return TRUE;
 }
 
 /**
