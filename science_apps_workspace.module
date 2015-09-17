@@ -459,8 +459,9 @@ function science_app_embed($node) {
     }
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
-    drupal_add_http_header('Cache-Control', 'public, max-age=1209600');
+    drupal_add_http_header('Cache-Control', 'public, max-age=86400');
     drupal_add_http_header('ETag', md5_file($asset_dir));
+    drupal_add_http_header('If-None-Match', md5_file($asset_dir));
     if ( $mtype == 'application/javascript' ||
          $mtype == 'application/x-javascript' ||
          $mtype == 'text/css' ||
