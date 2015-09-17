@@ -459,12 +459,15 @@ function science_app_embed($node) {
     }
     $mtype = file_get_mimetype($asset);
     drupal_add_http_header('Content-type', $mtype);
+    drupal_add_http_header('Cache-Control', 'public, max-age=1209600');
+    drupal_add_http_header('ETag', md5_file($asset_dir));
     if ( $mtype == 'application/javascript' ||
          $mtype == 'application/x-javascript' ||
          $mtype == 'text/css' ||
          $mtype == 'text/plain' ||
          $mtype == 'text/html'){
         print file_get_contents($asset_dir);
+        #print "This is some file";
     } else {
         readfile($asset_dir);
     }
@@ -944,7 +947,7 @@ function _science_apps_workspace_app_check_dependencies_ready($app_nid) {
 }
 
 /*
-    Deprecated for _science_apps_workspace_app_check_dependencies_ready($app_nid)
+    @deprecated for _science_apps_workspace_app_check_dependencies_ready($app_nid)
     We stopped installing dependencis in global folder.
 */
 function _science_apps_workspace_app_dependencies_ready($app_nid) {
@@ -1021,7 +1024,7 @@ function _science_apps_workspace_app_dependencies_process_local($app_nid) {
 }
 
 /*
-    Deprecated for _science_apps_workspace_app_dependencies_process_local
+    @deprecated for _science_apps_workspace_app_dependencies_process_local
     Dependencies now processed locally.
 */
 function _science_apps_workspace_app_dependencies_process($app_nid) {
@@ -1188,7 +1191,7 @@ function theme_science_app_display($vars) {
     }
     // add app.css
     foreach($app_styles as $style){
-        drupal_add_css($app_dir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'styles' . DIRECTORY_SEPARATOR . $style, 'file');
+        drupal_add_css($app_dir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'styles' . DIRECTORY_SEPARATOR . $style, array('type' => 'file', 'preprocess'=>FALSE));
     }
     foreach($app_scripts as $script){
         drupal_add_js('app-embed/' . $node->nid . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . $script, array('type' => 'file', 'scope' => 'footer', 'preprocess' => FALSE, 'weight' => -100));
@@ -1207,8 +1210,6 @@ function theme_science_app_display($vars) {
     $output = '<div class="science-app-pending">';
     $output .= '<h1><i class="fa fa-refresh fa-spin"></i> Preparing this application...</h1>';
     $output .= '<p>We are still getting this application ready. Please check back soon!</p>';
-    // $output .= '<p>'.l(t('Check Now'), 'workspace/prepare-app/'.$node->nid, array('attributes' => array('class' => 'btn btn-primary'))).'</p>';
-
     $items = array();
     foreach ($prep_steps as $step) {
       $items[] = '<i class="fa fa-' . ($step['status'] ? 'check-square-o' : 'square-o') . '"></i> ' . $step['name'];
