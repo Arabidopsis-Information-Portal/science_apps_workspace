@@ -1280,7 +1280,6 @@ function science_apps_workspace_load_local_libraries($nid) {
   if(array_key_exists('dependencies', $bower)) {
     $dep_list = _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list);
   }
-  error_log(print_r($dep_list));
   if(array_key_exists('error', $dep_list) && $dep_list['error']){
       return FALSE;
   }
