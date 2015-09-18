@@ -137,8 +137,6 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
   $node = $form_state['values']['node'];
   $op = $form_state['clicked_button']['#value'];
 
-  watchdog('science_apps_workspace', print_r($app_request, 1), array(), WATCHDOG_DEBUG);
-
   if ($op == $form_state['values']['return']) {
     $app_request->status = SCIENCE_APP_REQUEST_RETURNED;
   } else if ($op == $form_state['values']['accept']) {

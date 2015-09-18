@@ -1537,8 +1537,28 @@ function science_apps_workspace_mail($key, &$message, $params) {
   switch ($key){
     case 'publication_request_notify_admin':
     $rid = $params['rid'];
+    $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
+    $theme_vars = array(
+        'description' => check_plain($req->description),
+        'data_sources' => check_plain($req->data_sources),
+        'tech_contact' => l(check_plain($req->technical_contact_name) . ' <' . check_plain($req->technical_contact_mail) . '>', "mailto:{$req->technical_contact_mail}", array('absolute' => TRUE)),
+        'app_link' => l(t('View this application'), "node/{$req->nid}"),
+        'node' => $node,
+        'request_data' => $req,
+      );
+
     $message['subject'] = t('Science App Publication Request Awaiting Approval');
-    $message['body'][] = t('A user has submitted their science app for publication. Please review the request: !link',
+    $message['body'][] = t(
+      '<p>A user has submitted their science app for publication.<p>'.
+      '<div>' . theme('science_app_publication_request', $theme_vars) . '</div>'.
+      '<p>Please review the request: <a href="!link">!link</a></p>',
       array(
         '!link' => url("admin/config/araport/publication-requests/$rid", array('absolute' => TRUE))
       )
