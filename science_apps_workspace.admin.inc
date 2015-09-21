@@ -138,13 +138,16 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
   $op = $form_state['clicked_button']['#value'];
 
   if ($op == $form_state['values']['return']) {
+    $notification_type = 'publication_request_return_to_user';
     $app_request->status = SCIENCE_APP_REQUEST_RETURNED;
   } else if ($op == $form_state['values']['accept']) {
+    $notification_type = 'publication_request_notify_published';
     $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
     $node->status = 1;
     $node->science_app_config->published = SCIENCE_APP_PUBLISHED_YES;
     $node->science_app_config->no_update = TRUE;
   } else if ($op == $form_state['values']['reject']) {
+    $notification_type = 'publication_request_return_to_user';
     $app_request->status = SCIENCE_APP_REQUEST_COMPLETED;
     $node->status = 0;
     $node->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
@@ -152,11 +155,14 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
   }
 
   // notify submitter, technical contact
-  $to = array();
+  $to = $app_request->technical_contact_mail;
   $author = user_load($node->uid);
-  $to[] = $author->mail;
-  $to[] = $app_request->technical_contact_mail;
-  drupal_mail('science_apps_workspace', 'publication_request_notify_user', implode(',', $to), 'und', array('nid' => $node->nid, 'rid' => $app_request->rid));
+  $cc = $author->mail;
+  drupal_mail('science_apps_workspace', $notification_type, $to, 'und',
+              array(
+                'nid' => $node->nid, 'rid' => $app_request->rid,
+                'headers' => array('Cc' => $cc)
+              ));
 
   // Update the review requeset
   $app_request->publication_notes = $form_state['values']['publication_notes'];

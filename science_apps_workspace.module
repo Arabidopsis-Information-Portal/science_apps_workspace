@@ -1534,8 +1534,9 @@ function _science_apps_workspace_apps_administrators() {
  * Implements hook_mail()
  */
 function science_apps_workspace_mail($key, &$message, $params) {
+  global $base_url;
   switch ($key){
-    case 'publication_request_notify_admin':
+  case 'publication_request_notify_admin':
     $rid = $params['rid'];
     $nid = $params['nid'];
 
@@ -1556,21 +1557,76 @@ function science_apps_workspace_mail($key, &$message, $params) {
 
     $message['subject'] = t('Science App Publication Request Awaiting Approval');
     $message['body'][] = t(
-      '<p>A user has submitted their science app for publication.<p>'.
+      '<p>Dear Science App Admins,</p>'.
+      '<p>A user has submitted their science app entitled <a href="@app_link">@app_title</a> '.
+      'for publication on <a href="@site_url">@site_name</a>.<p>'.
       '<div>' . theme('science_app_publication_request', $theme_vars) . '</div>'.
-      '<p>Please review the request: <a href="!link">!link</a></p>',
+      '<p>Please visit the site and <a href="@review_link">review the request</a>.</p>'.
+      '<p>Thank you,<br>-Science App Admin Team</p>',
       array(
-        '!link' => url("admin/config/araport/publication-requests/$rid", array('absolute' => TRUE))
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@review_link' => url("admin/config/araport/publication-requests/$rid", array('absolute' => TRUE))
       )
     );
     break;
 
-    case 'publication_request_notify_user':
+  case 'publication_request_return_to_user':
+    $rid = $params['rid'];
     $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
     $message['subject'] = t('Your Science App Publication Request Has Been Updated');
-    $message['body'][] = t('You recently submitted a science app for publication. You request has been reviewed an updated by the Science App Review team. You can view the status of your request here: !link',
+    $message['body'][] = t(
+      '<p>Dear @full_name,</p>'.
+      '<p>You recently submitted a Science App entitled <a href="@app_link">@app_title</a> '.
+      'for publication on <a href="@site_url">@site_name</a>. Your request has been '.
+      'reviewed and updated by the Science App Review team. You can view the status of '.
+      'your request <a href="@status_link">here</a>.</p>'.
+      '<p>Thank you,<br>-Science App Review Team</p>',
       array(
-        '!link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
+        '@full_name' => check_plain($req->technical_contact_name),
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@status_link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
+      )
+    );
+    break;
+
+  case 'publication_request_notify_published':
+    $rid = $params['rid'];
+    $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
+    $message['subject'] = t('Your Science App Has Been Published');
+    $message['body'][] = t(
+      '<p>Dear @full_name,</p>'.
+      '<p>Congratulations! Your Science App entitled <a href="@app_link">@app_title</a> '.
+      'has been published on <a href="@site_url">@site_name</a>. Your request has been '.
+      'approved and your Science App is now available to all users of @site_name.</p>'.
+      '<p>Thank you for contributing a Science App to @site_name.</p>'.
+      '<p>Thank you,<br>-Science App Review Team</p>',
+      array(
+        '@full_name' => check_plain($req->technical_contact_name),
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@status_link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
       )
     );
     break;
