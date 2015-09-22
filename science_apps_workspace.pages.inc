@@ -273,42 +273,48 @@ function science_apps_workspace_science_app_publish($node) {
       '#prefix' => '<div class="jumbotron">',
       '#suffix' => '</div>',
     );
-  } else if ($node->science_app_config->published == SCIENCE_APP_PUBLISHED_REQUESTED) {
+  } else {
     $publication_request = db_select('science_apps_workspace_app_publication_request', 'pr')
                     ->fields('pr')
                     ->condition('nid', $node->nid)
                     ->execute()
                     ->fetch();
-    $output[] = array(
-      '#prefix' => '<div class="jumbotron">',
-      '#suffix' => '</div>',
-      'children' => array(
-        array(
-          '#markup' => t('Publication pending.'),
-          '#prefix' => '<h2>',
-          '#suffix' => '</h2>',
-        ),
-        array(
-          '#markup' => t('Publication for this application was requested on @created, and is pending review from the Araport team.', array('@created' => strftime('%b %e, %Y', $publication_request->created))),
-          '#prefix' => '<p>',
-          '#suffix' => '</p>',
-        ),
-      ),
-    );
-  } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
-    $output[] = array(
-      '#markup'=> t('Request to Publish Application'),
-      '#prefix' => '<h2>',
-      '#suffix' => '</h2>',
-    );
-    $output[] = array(
-      '#markup' => t('If you are ready to publish this app, complete the form below. A member of the Araport team will contact you with further details about publishing your app.'),
-      '#prefix' => '<p>',
-      '#suffix' => '</p>',
-    );
 
-    module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
-    $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node);
+    if ($publication_request) {
+      if ($publication_request->status == SCIENCE_APP_REQUEST_SUBMITTED) {
+        $output[] = array(
+          '#theme' => 'science_app_publication_request_submitted',
+          '#message' => t('Publication for this application was requested on @date, and is pending review from the Araport team.', array('@date' => strftime('%b %e, %Y', $publication_request->changed))),
+          '#request' => $publication_request,
+        );
+      } else {
+        $output[] = array(
+          '#theme' => 'science_app_publication_request_returned',
+          '#message' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s notes below.'),
+          '#request' => $publication_request,
+        );
+        $output[] = array(
+          '#markup' => '<p class="alert alert-info">'. t('Please make the requested changes and resubmit your request below.') .'</p>'
+        );
+
+        module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
+        $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node, $publication_request);
+      }
+    } else { // $node->science_app_config->published == SCIENCE_APP_PUBLISHED_NO
+      $output[] = array(
+        '#markup'=> t('Request to Publish Application'),
+        '#prefix' => '<h2>',
+        '#suffix' => '</h2>',
+      );
+      $output[] = array(
+        '#markup' => t('If you are ready to publish this app, complete the form below. A member of the Araport team will contact you with further details about publishing your app.'),
+        '#prefix' => '<p>',
+        '#suffix' => '</p>',
+      );
+
+      module_load_include('inc', 'science_apps_workspace', 'science_apps_workspace.forms');
+      $output[] = drupal_get_form('science_apps_workspace_science_app_publish_form', $node);
+    }
   }
   return $output;
 }

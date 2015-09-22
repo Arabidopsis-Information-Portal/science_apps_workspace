@@ -269,14 +269,20 @@ function science_apps_workspace_admin_default_workspace_submit(&$form, &$form_st
   drupal_set_message(t('The Default Workspace Configuration has been saved!'));
 }
 
-function science_apps_workspace_science_app_publish_form($form, &$form_state, $app) {
+function science_apps_workspace_science_app_publish_form($form, &$form_state, $app_node, $publication_request = NULL) {
   $form = array();
   global $user;
+
+  $form['rid'] = array(
+    '#type' => 'hidden',
+    '#title' => t('Request ID'),
+    '#value' => ($publication_request ? $publication_request->rid : 0),
+  );
 
   $form['nid'] = array(
     '#type' => 'hidden',
     '#title' => t('App NID'),
-    '#value' => $app->nid,
+    '#value' => $app_node->nid,
   );
 
   $form['uid'] = array(
@@ -290,6 +296,7 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
     '#title' => t('Application description'),
     '#description' => t('Please provide a brief description of your app, what it does, and how to use it.'),
     '#required' => TRUE,
+    '#default_value' => ($publication_request ? $publication_request->description : ''),
   );
 
   $form['data_sources'] = array(
@@ -297,9 +304,10 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
     '#title' => t('Data source(s)'),
     '#description' => t('Please list the data source(s) for your app, e.g., Araport Community Data APIs, user-provided data input, or third-party data APIs.'),
     '#required' => TRUE,
+    '#default_value' => ($publication_request ? $publication_request->data_sources : ''),
   );
 
-  $author = user_load($app->uid);
+  $author = user_load($app_node->uid);
   if (module_exists('profile2')) {
     $profiles = profile2_load_by_user($author->uid);
     $name = implode(' ', array(
@@ -315,14 +323,14 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
     '#title' => t('Technical Contact'),
     '#description' => t('The person to contact with questions about this application.'),
     '#required' => TRUE,
-    '#default_value' => $name,
+    '#default_value' => ($publication_request ? $publication_request->technical_contact_name : $name),
   );
 
   $form['technical_contact_mail'] = array(
     '#type' => 'textfield',
     '#title' => t('Technical Contact Email Address'),
     '#required' => TRUE,
-    '#default_value' => $author->mail,
+    '#default_value' => ($publication_request ? $publication_request->technical_contact_mail : $author->mail),
   );
 
   $form['actions'] = array(
@@ -332,7 +340,7 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
       '#value' => t('Submit Publication Request'),
     ),
     'cancel' => array(
-      '#markup' => l(t('Cancel'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))),
+      '#markup' => l(t('Cancel'), "node/{$app_node->nid}", array('attributes' => array('class' => array('btn', 'btn-default')))),
     )
   );
 
@@ -340,6 +348,7 @@ function science_apps_workspace_science_app_publish_form($form, &$form_state, $a
 }
 
 function science_apps_workspace_science_app_publish_form_submit(&$form, &$form_state) {
+  $rid = $form_state['values']['rid'];
   $nid = $form_state['values']['nid'];
   $uid = $form_state['values']['uid'];
   $description = $form_state['values']['description'];
@@ -347,27 +356,54 @@ function science_apps_workspace_science_app_publish_form_submit(&$form, &$form_s
   $technical_contact_name = $form_state['values']['technical_contact_name'];
   $technical_contact_mail = $form_state['values']['technical_contact_mail'];
 
-  /* save publication request to database */
-  watchdog('science_apps_workspace',
-    'Accepting app publication request {"nid": @nid, "uid": @uid, "description": "@description", "data_sources": "@data_sources", "technical_contact_name": "@technical_contact_name", "technical_contact_mail": "@technical_contact_mail"}',
-    array('@nid' => $nid, '@uid' => $uid, '@description' => $description, '@data_sources' => $data_sources, '@technical_contact_name' => $technical_contact_name, '@technical_contact_mail' => $technical_contact_mail)
-  );
-  $result = db_insert('science_apps_workspace_app_publication_request')
-            ->fields(array(
-              'nid' => $nid,
-              'uid' => $uid,
-              'description' => $description,
-              'data_sources' => $data_sources,
-              'technical_contact_name' => $technical_contact_name,
-              'technical_contact_mail' => $technical_contact_mail,
-              'created' => REQUEST_TIME,
-              'changed' => REQUEST_TIME
-            ))
-            ->execute();
+  if ($rid) {
+        watchdog('science_apps_workspace',
+      'Updating app publication request {"rid": $rid, "nid": @nid, "uid": @uid, "description": "@description", "data_sources": "@data_sources", "technical_contact_name": "@technical_contact_name", "technical_contact_mail": "@technical_contact_mail"}',
+      array('@rid' => $rid, '@nid' => $nid, '@uid' => $uid, '@description' => $description, '@data_sources' => $data_sources, '@technical_contact_name' => $technical_contact_name, '@technical_contact_mail' => $technical_contact_mail)
+    );
+    db_update('science_apps_workspace_app_publication_request')
+              ->fields(array(
+                'status' => SCIENCE_APP_REQUEST_SUBMITTED,
+                'description' => $description,
+                'data_sources' => $data_sources,
+                'technical_contact_name' => $technical_contact_name,
+                'technical_contact_mail' => $technical_contact_mail,
+                'changed' => REQUEST_TIME
+              ))
+              ->condition('rid', $rid)
+              ->execute();
+
+    watchdog('science_apps_workspace', 'App publication request rid=@rid updated.', array('@rid' => $rid));
+
+  } else {
+    /* save publication request to database */
+    watchdog('science_apps_workspace',
+      'Accepting app publication request {"nid": @nid, "uid": @uid, "description": "@description", "data_sources": "@data_sources", "technical_contact_name": "@technical_contact_name", "technical_contact_mail": "@technical_contact_mail"}',
+      array('@nid' => $nid, '@uid' => $uid, '@description' => $description, '@data_sources' => $data_sources, '@technical_contact_name' => $technical_contact_name, '@technical_contact_mail' => $technical_contact_mail)
+    );
+    $rid = db_insert('science_apps_workspace_app_publication_request')
+              ->fields(array(
+                'nid' => $nid,
+                'uid' => $uid,
+                'description' => $description,
+                'data_sources' => $data_sources,
+                'technical_contact_name' => $technical_contact_name,
+                'technical_contact_mail' => $technical_contact_mail,
+                'created' => REQUEST_TIME,
+                'changed' => REQUEST_TIME
+              ))
+              ->execute();
+
+    watchdog('science_apps_workspace', 'App publication request rid=@rid created.', array('@rid' => $rid));
+  }
 
   /* send email to "apps_administrators" */
-  // TODO
-  watchdog('science_apps_workspace', 'App publication request rid=@rid created.', array('@rid' => $result));
+  $admins = _science_apps_workspace_apps_administrators();
+  $to = array();
+  foreach ($admins as $admin) {
+    $to[] = $admin->mail;
+  }
+  drupal_mail('science_apps_workspace', 'publication_request_notify_admin', implode(',', $to), 'und', array('nid' => $nid, 'rid' => $rid));
 
   /* update app config to indicate publication requested */
   $result = db_update('science_apps_workspace_app_config')

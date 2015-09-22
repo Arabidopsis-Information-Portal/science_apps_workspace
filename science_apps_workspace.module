@@ -8,6 +8,10 @@ define('SCIENCE_APP_PUBLISHED_NO', 0);
 define('SCIENCE_APP_PUBLISHED_YES', 1);
 define('SCIENCE_APP_PUBLISHED_REQUESTED', 2);
 
+define('SCIENCE_APP_REQUEST_SUBMITTED', 0);
+define('SCIENCE_APP_REQUEST_RETURNED', 1);
+define('SCIENCE_APP_REQUEST_COMPLETED', 2);
+
 /**
  * Implements hook_menu().
  */
@@ -180,8 +184,42 @@ function science_apps_workspace_menu(){
     'description' => 'Review App Publication Requests',
     'type' => MENU_NORMAL_ITEM,
     'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_SUBMITTED),
     'file' => 'science_apps_workspace.admin.inc',
     'access arguments' => array('admin science apps')
+  );
+
+  $items['admin/config/araport/publication-requests/submitted'] = array(
+    'title' => 'Submitted',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_SUBMITTED),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+    'weight' => 0,
+  );
+
+  $items['admin/config/araport/publication-requests/returned'] = array(
+    'title' => 'Returned to user',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_RETURNED),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+    'weight' => 1,
+  );
+
+  $items['admin/config/araport/publication-requests/completed'] = array(
+    'title' => 'Completed',
+    'description' => 'Review App Publication Requests',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'science_apps_workspace_science_app_publish_admin',
+    'page arguments' => array((string) SCIENCE_APP_REQUEST_COMPLETED),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+    'weight' => 2,
   );
 
   $items['admin/config/araport/publication-requests/%'] = array(
@@ -447,7 +485,6 @@ function science_app_view($node, $view_mode) {
 function science_app_embed($node) {
   module_invoke('admin_menu', 'suppress');
   $arguments = arg();
-  //DONE: Resolve relative and check for being under the correct app drupal_realpath() and check with private app repository  * FIXED
   if (count($arguments) > 2) {
     $asset = implode('/', array_slice($arguments,2));
     $app_dir = _science_apps_workspace_apps_repo($node->nid);
@@ -468,7 +505,6 @@ function science_app_embed($node) {
          $mtype == 'text/plain' ||
          $mtype == 'text/html'){
         print file_get_contents($asset_dir);
-        #print "This is some file";
     } else {
         readfile($asset_dir);
     }
@@ -510,7 +546,7 @@ function science_app_form($node, $form_state) {
  *
  */
 function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_state, $form_id){
-    if(arg(1) != 'add'){
+    if (arg(1) != 'add') {
         $form['hard_reload'] = array(
             '#type' => 'checkbox',
             '#title' => t('Force Reload'),
@@ -518,17 +554,11 @@ function science_apps_workspace_form_science_app_node_form_alter(&$form, &$form_
             '#attributes' => array('style' => 'margin-left:0px'),
             '#weight' => 4
         );
-    }else {
+    } else {
         $form['title']['#required'] = False;
         $form['title']['#description'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
         $form['body']['und'][0]['#suffix'] = t('If your app uses an <code>araport-app.json</code> manifest you can leave this blank and it will get auto-populated.');
-        //lets hide the Title and Description only if the user is adding a node.
-        //We could also check if there's an 'nid'
-        //$node = $form_state['node']
-        //if(!isset($node->nid) || isset($node->is_new))
-        //
     }
-    //$form['#submit'][] = 'science_app_node_form_submit';
 }
 
 function science_app_node_form_submit(&$form, &$form_state){
@@ -1059,6 +1089,9 @@ function _science_apps_workspace_app_dependencies_process($app_nid) {
   return FALSE;
 }
 
+/**
+ * Implements hook_theme().
+ */
 function science_apps_workspace_theme() {
   $template_path = drupal_get_path('module', 'science_apps_workspace'). '/theme';
   return array(
@@ -1134,6 +1167,33 @@ function science_apps_workspace_theme() {
         'request_data' => null,
       ),
       'template' => 'publication_request',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_submitted' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_submitted',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_returned' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_returned',
+      'path' => $template_path,
+    ),
+
+    'science_app_publication_request_rejected' => array(
+      'variables' => array(
+        'message' => '',
+        'request' => null,
+      ),
+      'template' => 'publication_request_rejected',
       'path' => $template_path,
     ),
   );
@@ -1229,30 +1289,31 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
         if (strtolower($dep) == 'jquery' || strtolower($dep) == 'bootstrap') {
           continue;
         }
-        //First we'll try and find the library
-        if(!is_dir($base_path . DIRECTORY_SEPARATOR . $dep)){
+        // First we'll try and find the library
+        if (!is_dir($base_path . DIRECTORY_SEPARATOR . $dep)) {
             watchdog('science_apps_workspace', 'Library loading App (nid=@nid) failed for library: @lib; Library missing.',
                       array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
         $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'bower.json';
-        if(!is_file($bower)) $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'component.json';
-        if(!is_file($bower)){
+        if (!is_file($bower)) {
+          $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'component.json';
+        }
+        if (!is_file($bower)) {
             watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.',
                       array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
             return array('error' => true);
         }
 
-
         $bower = json_decode(file_get_contents($bower));
-
         if (array_key_exists('dependencies', $bower) && !in_array($dep, $temp_list)) {
           $temp_list[] = $dep;
           $dep_list = array_merge($dep_list, _science_apps_workspace_get_libraries_info($base_path, $bower->dependencies, $nid, $temp_list));
         }
-        //Now let's first grab the files under main.
+
+        // Now let's first grab the files under main.
         if (array_key_exists('main', $bower)) {
             if (is_array($bower->main)) {
               foreach ($bower->main as $dep_file) {
@@ -1408,4 +1469,132 @@ function _science_apps_workspace_app_preview_js() {
 })(jQuery);
 JS;
   drupal_add_js($script, array('type' => 'inline', 'scope' => 'footer'));
+}
+
+function _science_apps_workspace_apps_administrators() {
+  $users = array();
+  $role = user_role_load_by_name('apps administrator');
+  if ($role) {
+    $rid = $role->rid;
+    $uids = db_select('users_roles', 'ur')
+                ->fields('ur', array('uid'))
+                ->condition('ur.rid', $rid)
+                ->execute()->fetchCol();
+    if (!empty($uids)) {
+      $query = new EntityFieldQuery();
+      $query->entityCondition('entity_type', 'user')
+            ->propertyCondition('uid', $uids, 'IN')
+            ->propertyCondition('status', 1);
+      $entities = $query->execute();
+      if (!empty($entities)) {
+        $users = user_load_multiple(array_keys($entities['user']));
+      }
+    }
+  }
+
+  return $users;
+}
+
+/**
+ *
+ * Implements hook_mail()
+ */
+function science_apps_workspace_mail($key, &$message, $params) {
+  global $base_url;
+  switch ($key){
+  case 'publication_request_notify_admin':
+    $rid = $params['rid'];
+    $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
+    $theme_vars = array(
+        'description' => check_plain($req->description),
+        'data_sources' => check_plain($req->data_sources),
+        'tech_contact' => l(check_plain($req->technical_contact_name) . ' <' . check_plain($req->technical_contact_mail) . '>', "mailto:{$req->technical_contact_mail}", array('absolute' => TRUE)),
+        'app_link' => l(t('View this application'), "node/{$req->nid}"),
+        'node' => $node,
+        'request_data' => $req,
+      );
+
+    $message['subject'] = t('Science App Publication Request Awaiting Approval');
+    $message['body'][] = t(
+      '<p>Dear Science App Admins,</p>'.
+      '<p>A user has submitted their science app entitled <a href="@app_link">@app_title</a> '.
+      'for publication on <a href="@site_url">@site_name</a>.<p>'.
+      '<div>' . theme('science_app_publication_request', $theme_vars) . '</div>'.
+      '<p>Please visit the site and <a href="@review_link">review the request</a>.</p>'.
+      '<p>Thank you,<br>Science App Admin Team</p>',
+      array(
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@review_link' => url("admin/config/araport/publication-requests/$rid", array('absolute' => TRUE))
+      )
+    );
+    break;
+
+  case 'publication_request_return_to_user':
+    $rid = $params['rid'];
+    $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
+    $message['subject'] = t('Your Science App Publication Request Has Been Updated');
+    $message['body'][] = t(
+      '<p>Dear @full_name,</p>'.
+      '<p>You recently submitted a Science App entitled <a href="@app_link">@app_title</a> '.
+      'for publication on <a href="@site_url">@site_name</a>. Your request has been '.
+      'reviewed and updated by the Science App Review team. You can view the status of '.
+      'your request <a href="@status_link">here</a>.</p>'.
+      '<p>Thank you,<br>Science App Review Team</p>',
+      array(
+        '@full_name' => check_plain($req->technical_contact_name),
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@status_link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
+      )
+    );
+    break;
+
+  case 'publication_request_notify_published':
+    $rid = $params['rid'];
+    $nid = $params['nid'];
+
+    $query = db_select('science_apps_workspace_app_publication_request', 'pr');
+    $req = $query->fields('pr')
+                ->condition('rid', $rid)
+                ->execute()
+                ->fetch();
+    $node = node_load($req->nid);
+    $message['subject'] = t('Your Science App Has Been Published');
+    $message['body'][] = t(
+      '<p>Dear @full_name,</p>'.
+      '<p>Congratulations! Your Science App entitled <a href="@app_link">@app_title</a> '.
+      'has been published on <a href="@site_url">@site_name</a>. Your request has been '.
+      'approved and your Science App is now available to all users of @site_name.</p>'.
+      '<p>Thank you for contributing a Science App to @site_name.</p>'.
+      '<p>Thank you,<br>Science App Review Team</p>',
+      array(
+        '@full_name' => check_plain($req->technical_contact_name),
+        '@app_title' => check_plain($node->title),
+        '@app_link' => url("node/$nid", array('absolute' => TRUE)),
+        '@site_url' => $base_url,
+        '@site_name' => variable_get('site_name', '[website]'),
+        '@status_link' => url("node/$nid/science-app/publish", array('absolute' => TRUE))
+      )
+    );
+    break;
+  }
 }
