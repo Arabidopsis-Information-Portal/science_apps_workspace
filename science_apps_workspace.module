@@ -1562,7 +1562,7 @@ function science_apps_workspace_mail($key, &$message, $params) {
       'for publication on <a href="@site_url">@site_name</a>.<p>'.
       '<div>' . theme('science_app_publication_request', $theme_vars) . '</div>'.
       '<p>Please visit the site and <a href="@review_link">review the request</a>.</p>'.
-      '<p>Thank you,<br>-Science App Admin Team</p>',
+      '<p>Thank you,<br>Science App Admin Team</p>',
       array(
         '@app_title' => check_plain($node->title),
         '@app_link' => url("node/$nid", array('absolute' => TRUE)),
@@ -1590,7 +1590,7 @@ function science_apps_workspace_mail($key, &$message, $params) {
       'for publication on <a href="@site_url">@site_name</a>. Your request has been '.
       'reviewed and updated by the Science App Review team. You can view the status of '.
       'your request <a href="@status_link">here</a>.</p>'.
-      '<p>Thank you,<br>-Science App Review Team</p>',
+      '<p>Thank you,<br>Science App Review Team</p>',
       array(
         '@full_name' => check_plain($req->technical_contact_name),
         '@app_title' => check_plain($node->title),
@@ -1619,7 +1619,7 @@ function science_apps_workspace_mail($key, &$message, $params) {
       'has been published on <a href="@site_url">@site_name</a>. Your request has been '.
       'approved and your Science App is now available to all users of @site_name.</p>'.
       '<p>Thank you for contributing a Science App to @site_name.</p>'.
-      '<p>Thank you,<br>-Science App Review Team</p>',
+      '<p>Thank you,<br>Science App Review Team</p>',
       array(
         '@full_name' => check_plain($req->technical_contact_name),
         '@app_title' => check_plain($node->title),
