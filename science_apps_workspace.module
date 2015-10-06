@@ -179,6 +179,35 @@ function science_apps_workspace_menu(){
     'access arguments' => array('admin science apps')
   );
 
+  $items['admin/config/araport/apps'] = array(
+    'title' => 'Administer Science Apps',
+    'description' => 'Administrative actions for science apps',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'science_apps_workspace_apps_admin_view',
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+  );
+
+  $items['admin/config/araport/apps/%/publish'] = array(
+    'title' => 'Publish Science App',
+    'description' => 'Manually publish an app via admin',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('science_apps_workspace_apps_admin_confirm_publish', 4),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+  );
+
+  $items['admin/config/araport/apps/%/unpublish'] = array(
+    'title' => 'Unpublish Science App',
+    'description' => 'Manually unpublish an app via admin',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('science_apps_workspace_apps_admin_confirm_unpublish', 4),
+    'file' => 'science_apps_workspace.admin.inc',
+    'access arguments' => array('admin science apps'),
+  );
+
   $items['admin/config/araport/publication-requests'] = array(
     'title' => 'Review App Publication Requests',
     'description' => 'Review App Publication Requests',

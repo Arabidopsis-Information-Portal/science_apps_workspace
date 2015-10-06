@@ -290,7 +290,7 @@ function science_apps_workspace_science_app_publish($node) {
       } else {
         $output[] = array(
           '#theme' => 'science_app_publication_request_returned',
-          '#message' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s notes below.'),
+          '#message' => t('You have requested publication for this application, but the review team is requesting more information. Please see the reviewer\'s comments below.'),
           '#request' => $publication_request,
         );
         $output[] = array(

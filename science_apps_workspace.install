@@ -266,10 +266,15 @@ function science_apps_workspace_schema() {
         'default' => 0,
         'description' => 'Status of the publication request',
       ),
+      'reviewer_comments' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'Private comments from review team about the review',
+      ),
       'publication_notes' => array(
         'type' => 'text',
         'size' => 'big',
-        'description' => 'Notes from the review team',
+        'description' => 'Notes from the review team to the user',
       ),
       'created' => array(
         'description' => 'The Unix timestamp when the request was created.',
@@ -506,6 +511,21 @@ function science_apps_workspace_update_7002(&$sandbox) {
   );
   db_create_table('science_apps_workspace_app_publication_request', $schema);
   return 'Added science_apps_workspace_app_publication_request table.';
+}
+
+/**
+ * Adds 'reviewer_comments' field science_apps_workspace_app_publication_request table for
+ * recording review team private comments
+ */
+function science_apps_workspace_update_7003(&$sandbox) {
+  $ret = array();
+  $column_spec = array(
+    'type' => 'text',
+    'size' => 'big',
+    'description' => 'Private comments from review team about the review',
+  );
+  db_add_field('science_apps_workspace_app_publication_request', 'reviewer_comments', $column_spec);
+  return $ret;
 }
 
 /**

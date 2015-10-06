@@ -4,7 +4,7 @@
   <?php echo $message ?>
 </p>
 
-<h4>Reviewer comments:</h4>
+<h4>Reviewer comments to submitter:</h4>
 <blockquote>
   <?php echo $request->publication_notes ?>
 </blockquote>

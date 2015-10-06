@@ -1,5 +1,148 @@
 <?php
 
+function science_apps_workspace_apps_admin_view() {
+  $header = array(
+    array('data' => t('Title'), 'type' => 'property', 'specifier' => 'title'),
+    array('data' => t('Version'), 'type' => 'field', 'specifier' => array('field' => 'science_app_version', 'column' => 'value')),
+    t('State'),
+    t('Status'),
+    t('Owner'),
+    t('Actions'),
+  );
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node');
+  $query->entityCondition('bundle', 'science_app');
+  $query->tableSort($header);
+  $apps = $query->execute();
+  $apps = node_load_multiple(array_keys($apps['node']));
+
+  $rows = array();
+
+  foreach ($apps as $app) {
+    $owner = user_load($app->uid);
+
+    if ($app->science_app_config->ready == SCIENCE_APP_STATE_NOT_READY) {
+      $app_ready_state = '&#8635; '.t('Preparing');
+    } else if ($app->science_app_config->ready == SCIENCE_APP_STATE_READY) {
+      $app_ready_state = '&#10003; '.t('Ready');
+    } else { // $app->science_app_config->ready == SCIENCE_APP_STATE_ERROR
+      $app_ready_state = '&#10007; '.t('Error');
+    }
+
+    if ($app->science_app_config->published == SCIENCE_APP_PUBLISHED_YES) {
+      $app_published_status = '&#10003; '.t('Published');
+    } else if ($app->science_app_config->published == SCIENCE_APP_PUBLISHED_NO) {
+      $app_published_status =  t('Not published');
+    } else { // $app->science_app_config->published == SCIENCE_APP_PUBLISHED_REQUESTED
+      $app_published_status =  t('Requested');
+    }
+
+    $rows[] = array(
+      l($app->title, "node/{$app->nid}"),
+      count($app->science_app_version) ? $app->science_app_version['und'][0]['safe_value'] : '',
+      $app_ready_state,
+      $app_published_status,
+      l($owner->name, "user/{$owner->uid}"),
+      $app->science_app_config->published ?
+        l(t('Unpublish'), "admin/config/araport/apps/{$app->nid}/unpublish") :
+        l(t('Publish'), "admin/config/araport/apps/{$app->nid}/publish"),
+    );
+  }
+
+  return array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+}
+
+function science_apps_workspace_apps_admin_confirm_publish($form, &$form_state, $app_nid) {
+  $app = node_load($app_nid);
+  $form['#app'] = $app;
+  $form['nid'] = array('#type' => 'value', '#value' => $app_nid);
+  return confirm_form(
+    $form,
+    t('Are you sure you want to publish the app %app_title', array('%app_title' => $app->title)),
+    'node/' . $app->nid,
+    t('Once published, this app will be listed in the Apps Catalog and available to all users of the site.'),
+    t('Publish'),
+    t('Cancel'),
+    'science_app_confirm_publish'
+  );
+}
+
+function science_apps_workspace_apps_admin_confirm_publish_submit($form, &$form_state) {
+  global $user;
+
+  $app = $form['#app'];
+  $app->status = 1;
+  $app->science_app_config->published = SCIENCE_APP_PUBLISHED_YES;
+  $app->science_app_config->no_update = TRUE;
+
+  // Update the config
+  db_update('science_apps_workspace_app_config')
+    ->fields(array('published' => $app->science_app_config->published))
+    ->condition('nid', $app->nid)
+    ->execute();
+
+  // Update the app
+  node_save($app);
+
+  // log the event
+  watchdog('science_apps_workspace', 'Science App %app_title (nid=@app_nid) PUBLISHED via admin by %user', array(
+    '%app_title' => $app->title,
+    '@app_nid' => $app->nid,
+    '%user' => $user->name));
+
+  drupal_set_message(t('The Science App %app_title has been published!', array('%app_title' => $app->title)));
+
+  $form_state['redirect'] = 'admin/config/araport/apps';
+}
+
+function science_apps_workspace_apps_admin_confirm_unpublish($form, &$form_state, $app_nid) {
+  $app = node_load($app_nid);
+  $form['#app'] = $app;
+  $form['nid'] = array('#type' => 'value', '#value' => $app_nid);
+  return confirm_form(
+    $form,
+    t('Are you sure you want to unpublish the app %app_title', array('%app_title' => $app->title)),
+    'node/' . $app->nid,
+    t('Once published, this app will NO LONGER be listed in the Apps Catalog and will NOT be available to all users of the site.'),
+    t('Unpublish'),
+    t('Cancel'),
+    'science_app_confirm_unpublish'
+  );
+}
+
+function science_apps_workspace_apps_admin_confirm_unpublish_submit($form, &$form_state) {
+  global $user;
+
+  $app = $form['#app'];
+  $app->status = 0;
+  $app->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
+  $app->science_app_config->no_update = TRUE;
+
+  // Update the config
+  db_update('science_apps_workspace_app_config')
+    ->fields(array('published' => $app->science_app_config->published))
+    ->condition('nid', $app->nid)
+    ->execute();
+
+  // Update the app
+  node_save($app);
+
+  // log the event
+  watchdog('science_apps_workspace', 'Science App %app_title (nid=@app_nid) UNPUBLISHED via admin by %user', array(
+    '%app_title' => $app->title,
+    '@app_nid' => $app->nid,
+    '%user' => $user->name));
+
+  drupal_set_message(t('The Science App %app_title has been unpublished.', array('%app_title' => $app->title)));
+
+  $form_state['redirect'] = 'admin/config/araport/apps';
+}
+
 function science_apps_workspace_science_app_publish_admin($request_status = SCIENCE_APP_REQUEST_SUBMITTED) {
   $query = db_select('science_apps_workspace_app_publication_request', 'pr');
   $publication_requests = $query->fields('pr')
@@ -85,10 +228,18 @@ function science_apps_workspace_science_app_publish_admin_review_form($form, &$f
 
   $form['publication_notes'] = array(
     '#type' => 'textarea',
-    '#title' => t('Reviewer Notes'),
+    '#title' => t('Publication Notes'),
+    '#description' => t('Use this space to communicate to the user any updates, changes, or requirements that need to be met in order to publish this application. This comments will be sent to the application authors.'),
+    '#required' => FALSE,
+    '#default_value' => $app_request->publication_notes,
+  );
+
+  $form['reviewer_comments'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Review Team Internal Notes'),
     '#description' => t('Please provide any administrative notes about this application review here. These will NOT be displayed to the application authors.'),
     '#required' => TRUE,
-    '#default_value' => $app_request->publication_notes,
+    '#default_value' => $app_request->reviewer_comments,
   );
 
   $form['actions'] = array(
@@ -152,23 +303,30 @@ function science_apps_workspace_science_app_publish_admin_review_form_submit($fo
     $node->status = 0;
     $node->science_app_config->published = SCIENCE_APP_PUBLISHED_NO;
     $node->science_app_config->no_update = TRUE;
+  } else {
+    // SAVE FOR LATER
+    $notification_type = FALSE;
   }
 
-  // notify submitter, technical contact
-  $to = $app_request->technical_contact_mail;
-  $author = user_load($node->uid);
-  $cc = $author->mail;
-  drupal_mail('science_apps_workspace', $notification_type, $to, 'und',
-              array(
-                'nid' => $node->nid, 'rid' => $app_request->rid,
-                'headers' => array('Cc' => $cc)
-              ));
+  if ($notification_type) {
+    // notify submitter, technical contact
+    $to = $app_request->technical_contact_mail;
+    $author = user_load($node->uid);
+    $cc = $author->mail;
+    drupal_mail('science_apps_workspace', $notification_type, $to, 'und',
+                array(
+                  'nid' => $node->nid, 'rid' => $app_request->rid,
+                  'headers' => array('Cc' => $cc)
+                ));
+  }
 
   // Update the review requeset
   $app_request->publication_notes = $form_state['values']['publication_notes'];
+  $app_request->reviewer_comments = $form_state['values']['reviewer_comments'];
   db_update('science_apps_workspace_app_publication_request')
     ->fields(array(
       'publication_notes' => $app_request->publication_notes,
+      'reviewer_comments' => $app_request->reviewer_comments,
       'status' => $app_request->status,
     ))
     ->condition('rid', $app_request->rid)
