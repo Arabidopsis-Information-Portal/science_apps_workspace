@@ -520,7 +520,7 @@ function science_app_embed($node) {
     $app_real = drupal_realpath($app_dir);
     $asset_dir = implode(DIRECTORY_SEPARATOR, array($app_dir, $asset));
     $asset_real = drupal_realpath($asset_dir);
-    if(strpos($asset_real, $app_real) !== 0){
+    if(strpos($asset_real, $app_real) !== 0 || !file_exists($asset_real) || !is_readable($asset_real)){
         drupal_not_found();
     }
     $mtype = file_get_mimetype($asset);
@@ -986,13 +986,13 @@ function _science_apps_workspace_app_check_dependencies_ready($app_nid) {
               watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) declares "%main" in bower.json. File not found.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version, '%main' => $bower->main), WATCHDOG_WARNING);
             }
           } else {
-            $ready = FALSE;
-            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.', array('%lib' => $lib)), 'error');
+            #$ready = FALSE;
+            drupal_set_message(t('Unable to load dependency %lib: bower.json missing "main" declaration.\n Library must be loaded manually.', array('%lib' => $lib)), 'error');
             watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) undeclared "main" in bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
           }
         } else {
-          $ready = FALSE;
-          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.', array('%lib' => $lib)), 'error');
+          #$ready = FALSE;
+          drupal_set_message(t('Unable to load dependency %lib: bower.json missing.\n Library must be loaded manually.', array('%lib' => $lib)), 'error');
           watchdog('science_apps_workspace', 'SciApp (nid=@nid) declared dependency (%lib, %version) is missing bower.json. Dependency loading will fail.', array('@nid' => $app_nid, '%lib' => $lib, '%version' => $version), WATCHDOG_ERROR);
         }
       } else {
@@ -1330,10 +1330,10 @@ function _science_apps_workspace_get_libraries_info($base_path, $dependencies, $
           $bower = $base_path . DIRECTORY_SEPARATOR . $dep . DIRECTORY_SEPARATOR . 'component.json';
         }
         if (!is_file($bower)) {
-            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib; Library missing bower.json file.',
+            watchdog('science_apps_workspace', 'Library loading for App (nid=@nid) failed for library: @lib.\n Library missing bower.json file.\n Library must be loaded manually.',
                       array('@nid' => $nid, '@lib' => $dep),
                       WATCHDOG_ERROR);
-            return array('error' => true);
+            return array('bower_error' => true);
         }
 
         $bower = json_decode(file_get_contents($bower));
