@@ -4,7 +4,13 @@
     <div class="caption app-description">
       <h3>
         <?php echo $node->title ?><br>
-        <small><?php echo $node->science_app_version['und'][0]['safe_value'] ?></small>
+        <small><?php
+          if (array_key_exists('und', $node->science_app_version)) {
+            echo $node->science_app_version['und'][0]['safe_value'];
+          } else {
+            echo 'latest';
+          }
+        ?></small>
       </h3>
 
       <?php if (isset($node->body['und'])) { ?>
