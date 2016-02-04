@@ -132,6 +132,9 @@ function drush_science_apps_workspace_apps_process() {
     foreach ($del_nids as $nid){
         print "Deleting Science App nid=$nid...\n";
         _science_apps_workspace_app_clean_repo($nid);
+        db_delete('science_apps_workspace_app_config')
+          ->condition('nid', $node->nid)
+          ->execute();
     }
   }else {
     print "No apps to process!\n";
