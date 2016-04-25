@@ -270,8 +270,9 @@ function science_apps_workspace_catalog() {
             $app_config = (object) $app_config_defaults;
         }
 
-        if (is_dir(implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', 'screenshots')))) {
-            $screenshot_dir = drupal_realpath(implode(DIRECTORY_SEPARATOR, [$app_dir, 'app', 'screenshots']));
+        $screenshot_dir = implode(DIRECTORY_SEPARATOR, array($app_dir, 'app', 'screenshots'));
+        if (is_dir($screenshot_dir)) {
+            $screenshot_dir = drupal_realpath($screenshot_dir);
             $screenshot_files = glob("$screenshot_dir/*.{jpg,jpeg,png,gif}", GLOB_BRACE);
             $app_screenshots = substr_replace($screenshot_files, "/app-embed/$app->nid/app/screenshots", 0, strlen($screenshot_dir));
         } else {
