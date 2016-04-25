@@ -246,9 +246,16 @@ function science_apps_workspace_catalog() {
     $apps = node_load_multiple(array_keys($apps['node']));
     $previews = array();
     foreach ($apps as $app) {
+        if (user_access('use science apps')) {
+            $use_link_href = url("node/{$app->nid}");
+            $use_link_text = t('Use this app');
+        } else {
+            $use_link_href = url('user/login', array('destination' => "node/{$app->nid}"));
+            $use_link_text = t('Login to use this app');
+        }
         $link = user_access('use science apps') ?
             l(t('Use this app'), "node/{$app->nid}", array('attributes' => array('class' => array('btn', 'btn-xs', 'btn-primary')))) :
-            l(t('Login to use this app'), "user/login", array('attributes' => array('class' => array('btn', 'btn-xs', 'btn-default')), 'query' => array('destination' => "node/{$app->nid}")));
+            l(t('Login to use this app'), "user/login", array('attributes' => array('class' => array('btn', 'btn-xs', 'btn-primary')), 'query' => array('destination' => "node/{$app->nid}")));
         $app_dir = _science_apps_workspace_apps_repo($app->nid);
 
         $app_config_defaults = [
@@ -278,6 +285,8 @@ function science_apps_workspace_catalog() {
             '#app_screenshots' => $app_screenshots,
             '#author' => user_load($app->uid),
             '#link' => $link,
+            '#use_link_href' => $use_link_href,
+            '#use_link_text' => $use_link_text,
             '#description' => $app->body,
             '#app_preview_classes' => array('science-app-preview'),
         );

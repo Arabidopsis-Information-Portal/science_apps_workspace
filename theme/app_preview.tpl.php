@@ -35,7 +35,7 @@
                data-toggle="modal" data-target="#app-preview-<?php print $node->nid ?>">
                 More information
             </a>
-            <?php echo $link; ?>
+            <a href="<?php print $use_link_href ?>" class="btn btn-xs btn-primary"><?php print $use_link_text ?></a>
         </div>
     </div>
     <div class="app-preview-modal modal fade" id="app-preview-<?php print $node->nid ?>" tab-index="-1" role="dialog" aria-labelledby="app-preview-<?php print $node->nid ?>-title">
@@ -92,6 +92,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <a href="<?php print $use_link_href ?>" class="btn btn-primary"><?php print $use_link_text ?></a>
                 </div>
             </div>
         </div>

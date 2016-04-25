@@ -13,6 +13,13 @@ define('SCIENCE_APP_REQUEST_SUBMITTED', 0);
 define('SCIENCE_APP_REQUEST_RETURNED', 1);
 define('SCIENCE_APP_REQUEST_COMPLETED', 2);
 
+function science_apps_workspace_init() {
+    if (! drupal_session_started()) {
+        /* need a session for some functions */
+        drupal_session_initialize();
+    }
+}
+
 /**
  * Implements hook_menu().
  */
@@ -53,8 +60,8 @@ function science_apps_workspace_menu(){
         'description' => t('Embedded Science App'),
         'page callback' => 'science_app_embed',
         'page arguments' => array(1),
-        'access callback' => 'node_access',
-        'access arguments' => array('view', 1),
+        'access callback' => 'science_app_embed_access',
+        'access arguments' => array(1),
         'type' => MENU_CALLBACK,
     );
 
@@ -514,6 +521,15 @@ function science_app_view($node, $view_mode) {
     }
 
     return $node;
+}
+
+function science_app_embed_access($node) {
+    $arguments = arg();
+    if (count($arguments) > 2) {
+        return drupal_session_started();
+    } else {
+        return node_access('view', $node);
+    }
 }
 
 function science_app_embed($node) {
@@ -1141,6 +1157,8 @@ function science_apps_workspace_theme() {
                 'app_screenshots' => null,
                 'author' => null,
                 'link' => null,
+                'use_link_href' => null,
+                'use_link_text' => null,
                 'description' => null,
                 'app_preview_classes' => array('science-app-preview'),
             ),
