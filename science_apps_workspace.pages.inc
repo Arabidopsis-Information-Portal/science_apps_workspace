@@ -258,10 +258,10 @@ function science_apps_workspace_catalog() {
             l(t('Login to use this app'), "user/login", array('attributes' => array('class' => array('btn', 'btn-xs', 'btn-primary')), 'query' => array('destination' => "node/{$app->nid}")));
         $app_dir = _science_apps_workspace_apps_repo($app->nid);
 
-        $app_config_defaults = [
-            'tags' => [],
+        $app_config_defaults = array(
+            'tags' => array(),
             'icon' => '',
-        ];
+        );
         if (is_file($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json')) {
             $app_config = json_decode(file_get_contents($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json'));
             $app_config = (object) array_merge($app_config_defaults, (array) $app_config);
