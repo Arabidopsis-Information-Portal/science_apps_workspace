@@ -1,90 +1,162 @@
 .science-app-pending {
-  background-color: #fafafa;
-  color: inherit;
-  padding: 30px;
-  margin: 15px 0;
+    background-color: #fafafa;
+    color: inherit;
+    padding: 30px;
+    margin: 15px 0;
 }
 
 .science-app-pending h1 {
-  font-size: 48px;
+    font-size: 48px;
 }
 
 .science-app-pending p {
-  font-size: 18px;
-  font-weight: 200;
+    font-size: 18px;
+    font-weight: 200;
 }
 
 .science-apps-workspace .app-placeholder {
-  background-color: #eee;
-  padding: 30px;
-  font-size: 1.5em;
-  line-height: 1.8em;
-  text-align: center;
+    background-color: #eee;
+    padding: 30px;
+    font-size: 1.5em;
+    line-height: 1.8em;
+    text-align: center;
 }
 
 #science-apps-workspace-edit-form .ws-row,
 #science-apps-workspace-edit-form .ws-cols {
-  margin: 15px 0;
+    margin: 15px 0;
 }
 
 #science-apps-workspace-edit-form .ws-col {
-  border: 1px dashed #ddd;
-  padding-top: 15px;
-  padding-bottom: 15px;
+    border: 1px dashed #ddd;
+    padding-top: 15px;
+    padding-bottom: 15px;
 }
 
 .science-apps-workspace .row {
-  margin-bottom: 30px;
+    margin-bottom: 30px;
 }
 
 #science-apps-workspace-admin-default-workspace .ws-row,
 #science-apps-workspace-admin-default-workspace .ws-cols {
-  margin: 15px 0;
+    margin: 15px 0;
 }
 
 #science-apps-workspace-admin-default-workspace .ws-cols:before,
 #science-apps-workspace-admin-default-workspace .ws-cols:after {
-  content: "";
-  display: table;
-  line-height: 0;
+    content: "";
+    display: table;
+    line-height: 0;
 }
 
 #science-apps-workspace-admin-default-workspace .ws-cols:after {
-  clear: both;
+    clear: both;
 }
 
 #science-apps-workspace-admin-default-workspace .ws-col {
-  float: left;
-}
-
-.science-app-preview.reveal-description {
-  z-index: 10;
+    float: left;
 }
 
 .science-app-preview .thumbnail {
-  background-color: #fff;
+    background-color: #fff;
+}
+
+.science-apps-catalog {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.science-app-preview {
+    display: flex;
+    padding: 10px;
+    width: 33.33333%;
+}
+
+.science-app-preview .thumbnail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
 }
 
 .science-app-preview .app-description {
-  height: 150px;
-  overflow: hidden;
-  position: relative;
-  -webkit-transition: height 250ms ease-in-out;
-  -moz-transition: height 250ms ease-in-out;
-  -o-transition: height 250ms ease-in-out;
-  transition: height 250ms ease-in-out;
+    flex: 2 1 0%;
+    position: relative;
+    overflow: hidden;
+}
+
+.science-app-preview .app-description .description {
+    max-height: 50px;
 }
 
 .science-app-preview .app-description:after {
-  content: "";
-  display: block;
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 1em;
-  background-image: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+    position: absolute;
+    content: '';
+    display: block;
+    width: 100%;
+    height: 20px;
+    bottom: -6px;
+    background-image: linear-gradient(to bottom,rgba(255,255,255,0),white);
 }
 
-.science-app-preview .app-description.app-description-reveal:after {
-  display: none;
+.science-app-preview .app-description.reveal-description .description {
+    max-height: initial;
+}
+
+@media screen and (min-width: 991px) {
+    .science-app-preview {
+        width: 25%;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .science-app-preview {
+        width: 50%;
+    }
+}
+
+@media screen and (max-width: 500px) {
+    .science-app-preview {
+        width: 100%;
+    }
+}
+
+.screenshots-scroller {
+    display: -webkit-box;  /* OLD - iOS 6-, Safari 3.1-6, BB7 */
+    display: -ms-flexbox;  /* TWEENER - IE 10 */
+    display: -webkit-flex; /* NEW - Safari 6.1+. iOS 7.1+, BB10 */
+    display: flex;         /* NEW, Spec - Firefox, Chrome, Opera */
+    -webkit-box-flex: 1;   /* OLD - iOS 6-, Safari 3.1-6 */
+    -webkit-flex: 1;       /* Safari 6.1+. iOS 7.1+, BB10 */
+    -ms-flex: 1;           /* IE 10 */
+    flex: 1;               /* NEW, Spec - Firefox, Chrome, Opera */
+
+    overflow: auto;
+}
+
+.screenshot {
+    flex: 0 0 auto;
+}
+
+.screenshot > img {
+    width: 100%;
+}
+
+@media screen and (max-width: 767px) {
+    .screenshot {
+        flex: 0 0 80%;
+    }
+}
+
+@media screen and (min-width: 768px) {
+    .screenshot > img {
+        width: 450px;
+    }
+}
+
+@media screen and (min-width: 992px) {
+    .screenshot > img {
+        width: 700px;
+    }
 }
