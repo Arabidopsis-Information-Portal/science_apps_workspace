@@ -294,7 +294,7 @@ function science_apps_workspace_catalog() {
     }
 
 
-    $script = 'scripts/science_apps_catalog.js';
+    $script = '/scripts/science_apps_catalog.js';
     drupal_add_js(drupal_get_path('module', 'science_apps_workspace'). $script, array('scope' => 'footer'));
 
     return array(
