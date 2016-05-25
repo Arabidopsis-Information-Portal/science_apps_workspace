@@ -250,7 +250,7 @@ function science_apps_workspace_catalog() {
             $use_link_href = url("node/{$app->nid}");
             $use_link_text = t('Use this app');
         } else {
-            $use_link_href = url('user/login', array('destination' => "node/{$app->nid}"));
+            $use_link_href = url('user/login', array('query' => array('destination' => "node/{$app->nid}")));
             $use_link_text = t('Login to use this app');
         }
         $link = user_access('use science apps') ?
