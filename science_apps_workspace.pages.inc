@@ -245,6 +245,8 @@ function science_apps_workspace_catalog() {
         ->execute();
     $apps = node_load_multiple(array_keys($apps['node']));
     $previews = array();
+
+    $apps_json = array();
     foreach ($apps as $app) {
         if (user_access('use science apps')) {
             $use_link_href = url("node/{$app->nid}");
@@ -278,7 +280,17 @@ function science_apps_workspace_catalog() {
         } else {
             $app_screenshots = false;
         }
-        
+
+        $apps_json[] = array(
+          'id' => $app->nid,
+          'name' => $app->title,
+          'description' => isset($app->body['und']) ? $app->body['und'][0]['safe_value'] : '',
+          'tags' => implode(',', $app_config->tags),
+          'author' => $app->name,
+          'version' => isset($app->science_app_version['und']) ? $app->science_app_version['und'][0]['safe_value'] : '',
+          'repo' => $app->science_app_repository['und'][0]['value']
+        );
+
         $previews[] = array(
             '#theme' => 'science_app_preview',
             '#node' => $app,
@@ -293,14 +305,25 @@ function science_apps_workspace_catalog() {
         );
     }
 
+    drupal_add_js('window.scienceApps = '.json_encode($apps_json).';', array('scope' => 'footer', 'type' => 'inline'));
 
-    $script = '/scripts/science_apps_catalog.js';
-    drupal_add_js(drupal_get_path('module', 'science_apps_workspace'). $script, array('scope' => 'footer'));
+    $scripts = array(
+        '/vendor/underscore/underscore-min.js',
+        '/scripts/science_apps_catalog.js',
+    );
+    foreach ($scripts as $script) {
+        drupal_add_js(drupal_get_path('module', 'science_apps_workspace').$script, array('scope' => 'footer'));
+    }
 
     return array(
-        '#prefix' => '<div class="science-apps-catalog">',
-        '#suffix' => '</div>',
-        'children' => $previews,
+        'header' => array(
+            '#theme' => 'science_apps_catalog_header'
+        ),
+        'main' => array(
+            '#prefix' => '<div class="science-apps-catalog">',
+            '#suffix' => '</div>',
+            'children' => $previews,
+        )
     );
 }
 

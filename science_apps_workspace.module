@@ -1244,6 +1244,12 @@ function science_apps_workspace_theme() {
             'template' => 'publication_request_rejected',
             'path' => $template_path,
         ),
+
+        'science_apps_catalog_header' => array(
+            'variables' => array(),
+            'template' => 'app_catalog_header',
+            'path' => $template_path,
+        ),
     );
 }
 

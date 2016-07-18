@@ -1,4 +1,4 @@
-<div class="<?php echo implode(' ', $app_preview_classes) ?>">
+<div class="<?php echo implode(' ', $app_preview_classes) ?>" id="science-app-<?php print $node->nid ?>">
     <div class="thumbnail">
         <?php if ($app_config->icon) { ?>
             <img src="/app-embed/<?php print $node->nid ?>/<?php print $app_config->icon ?>" style="height:60px;">
