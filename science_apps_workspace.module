@@ -13,6 +13,10 @@ define('SCIENCE_APP_REQUEST_SUBMITTED', 0);
 define('SCIENCE_APP_REQUEST_RETURNED', 1);
 define('SCIENCE_APP_REQUEST_COMPLETED', 2);
 
+define('SCIENCE_APP_FULL_SCREEN_DEFAULT', 'default');
+define('SCIENCE_APP_FULL_SCREEN_REQUIRE', 'require');
+define('SCIENCE_APP_FULL_SCREEN_DISABLE', 'disable');
+
 /**
  * Implements hook_menu().
  */
@@ -53,6 +57,8 @@ function science_apps_workspace_menu(){
         'description' => t('Embedded Science App'),
         'page callback' => 'science_app_embed',
         'page arguments' => array(1),
+        'title callback' => 'science_app_embed_title',
+        'title arguments' => array(1),
         'access callback' => 'science_app_embed_access',
         'access arguments' => array(1),
         'type' => MENU_CALLBACK,
@@ -505,15 +511,65 @@ function science_app_delete($node) {
 function science_app_view($node, $view_mode) {
 
     if ($view_mode == 'full' || $view_mode == 'embed') {
-        $node->content['app'] = array(
-            '#markup' => '<iframe src="'.url("app-embed/{$node->nid}").'/" class="araport-app-frame" style="border:0;width:100%"></iframe>',
-            '#weight' => 10,
-        );
+        $app_config = (object) array('fullscreen' => SCIENCE_APP_FULL_SCREEN_DEFAULT);
+        $app_dir = _science_apps_workspace_apps_repo($node->nid);
+        if (is_file($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json')) {
+            $app_config = (object) array_merge((array) $app_config, (array) json_decode(file_get_contents($app_dir . DIRECTORY_SEPARATOR . 'araport-app.json')));
+        }
+        switch ($app_config->fullscreen) {
+            case SCIENCE_APP_FULL_SCREEN_REQUIRE:
+                $fullscreen_pref = SCIENCE_APP_FULL_SCREEN_REQUIRE;
+                break;
+
+            case SCIENCE_APP_FULL_SCREEN_DISABLE:
+                $fullscreen_pref = SCIENCE_APP_FULL_SCREEN_DISABLE;
+                break;
+
+            default:
+                $fullscreen_pref = SCIENCE_APP_FULL_SCREEN_DEFAULT;
+        }
+
+        if ($fullscreen_pref == SCIENCE_APP_FULL_SCREEN_REQUIRE) {
+            $node->content['app'] = array(
+                '#prefix' => '<p class="lead">',
+                '#suffix' => '</p>',
+                '#markup' => l(
+                    t('Open %app in Full Screen', array('%app' => $node->title)),
+                    "app-embed/{$node->nid}",
+                    array(
+                        'attributes' => array(
+                            'class' => 'btn btn-primary btn-lg',
+                            'target' => '_blank',
+                        ),
+                        'html' => TRUE,
+                    )
+                ),
+                '#weight' => 10,
+            );
+        } else {
+            if ($fullscreen_pref == SCIENCE_APP_FULL_SCREEN_DEFAULT) {
+                $fullscreen_url = url("app-embed/{$node->nid}");
+                $node->content['options'] = array(
+                    '#markup' => "<div class='app-options'><a href='$fullscreen_url' target='_blank' class='btn btn-info'><i class='fa fa-arrows-alt'></i> View App Full Screen</a></div>",
+                    '#weight' => 10,
+                );
+            }
+
+            $node->content['app'] = array(
+                '#markup' => '<iframe src="'.url("app-embed/{$node->nid}").'/" class="araport-app-frame" style="border:0;width:100%"></iframe>',
+                '#weight' => 10,
+            );
+        }
+
         drupal_add_js(drupal_get_path('module', 'science_apps_workspace') . '/vendor/iframe-resizer/src/iframeResizer.js', array('scope' => 'footer'));
         drupal_add_js('(function(window, $, undefined) { $(".araport-app-frame").iFrameResize(); })(window, jQuery);', array('type' => 'inline', 'scope' => 'footer', 'cache' => FALSE, 'weight' => 10000));
     }
 
     return $node;
+}
+
+function science_app_embed_title($node) {
+    return $node->title;
 }
 
 function science_app_embed_access($node) {
