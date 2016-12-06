@@ -535,7 +535,7 @@ function science_app_view($node, $view_mode) {
                 '#suffix' => '</p>',
                 '#markup' => l(
                     t('Open %app in Full Screen', array('%app' => $node->title)),
-                    "app-embed/{$node->nid}",
+                    "app-embed/{$node->nid}/",
                     array(
                         'attributes' => array(
                             'class' => 'btn btn-primary btn-lg',
